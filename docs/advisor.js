@@ -225,14 +225,45 @@
     treeModel = model;
   }
 
-  function treeFeatures(prompt, choice, keywords) {
-    const norm = (s) =>
-      (s || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-    const p = norm(prompt);
-    const c = norm(choice);
+  function _n(s) {
+    return (s || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  }
+
+  function treeHeuristic(prompt, choice) {
+    const c = _n(choice);
+    const p = _n(prompt);
+    let s = 0;
+    if (/collectif|travailler|soigner|repos|verif|licence|prudent|discret|ecout|rentrer|hygiene|garant|diplomat|excus|focus|danse|repousser|encore/.test(c)) s += 5;
+    if (/panenka|clash|insult|engueul|soiree|boite|alcool|fete|tiktok|buzz|forcer|dopage|casino|legendaire|annoncer la retraite|prendre votre retraite/.test(c)) s -= 6;
+    if (/bless|douleur|medical|kine/.test(p)) {
+      if (/repos|soigner|medical|inapte|suivre/.test(c)) s += 6;
+      if (/forcer|cacher|anti-douleur/.test(c)) s -= 6;
+    }
+    if (/agent|frais/.test(p)) {
+      if (/verif|licence|federation|refuser|lire/.test(c)) s += 8;
+      if (/^payer|donner/.test(c)) s -= 8;
+    }
+    if (/penalty/.test(p)) {
+      if (/force/.test(c)) s += 4;
+      if (/panenka/.test(c)) s -= 5;
+    }
+    if (/retrait|radios|reverence/.test(p)) {
+      if (/danse|repousser|encore|battre|reconqu/.test(c)) s += 10;
+      if (/annoncer la retraite|prendre votre retraite|tete haute/.test(c)) s -= 12;
+    }
+    if (/soir|boite|fete|nuit/.test(p)) {
+      if (/rentrer|refuser|dormir/.test(c)) s += 5;
+      if (/accepter|profiter|verre/.test(c)) s -= 5;
+    }
+    return s;
+  }
+
+  function baseTreeFeatures(prompt, choice, keywords) {
+    const p = _n(prompt);
+    const c = _n(choice);
     const feats = [];
     for (const kw of keywords) {
       feats.push(c.includes(kw) ? 1 : 0);
@@ -241,20 +272,28 @@
     feats.push(Math.min(c.length, 200) / 100);
     feats.push(/^\s*collectif\b/.test(c) ? 1 : 0);
     feats.push(c.includes("legendaire") ? 1 : 0);
-    feats.push(/prudent|sagesse|^pro\b/.test(c) ? 1 : 0);
-    const safe = /soigner|repos|verif|travailler|ecout|discret|prudent|hygiene|rentrer|medical|present|garant|collectif|excus|focus|licence|federation|danse|repousser/.test(c) ? 1 : 0;
-    const risk = /panenka|clash|insult|engueul|soiree|boite|alcool|fete|tiktok|buzz|forcer|cacher|payer|dopage|casino|legendaire|retraite/.test(c) ? 1 : 0;
-    feats.push(safe, risk);
-    feats.push(p.includes("agent") && (c.includes("verif") || c.includes("licence")) ? 1 : 0);
-    feats.push(p.includes("bless") && (c.includes("repos") || c.includes("soigner") || c.includes("medical")) ? 1 : 0);
-    feats.push((p.includes("banc") || p.includes("temps de jeu")) && c.includes("rester") ? 1 : 0);
-    feats.push(p.includes("penalty") && c.includes("force") ? 1 : 0);
-    feats.push(p.includes("penalty") && c.includes("panenka") ? 1 : 0);
-    feats.push((p.includes("soir") || p.includes("boite")) && (c.includes("rentrer") || c.includes("refuser")) ? 1 : 0);
-    feats.push(p.includes("retrait") && (c.includes("danse") || c.includes("repousser") || c.includes("encore")) ? 1 : 0);
-    feats.push(p.includes("retrait") && c.includes("annoncer") ? 1 : 0);
-    feats.push((p.includes("coach") || p.includes("staff")) && (c.includes("ecout") || c.includes("travaill")) ? 1 : 0);
+    feats.push(/prudent|sagesse/.test(c) ? 1 : 0);
+    feats.push(/soigner|repos|verif|travailler|ecout|discret|prudent|hygiene|rentrer|medical|present|garant|collectif|excus|focus|licence|danse|repousser/.test(c) ? 1 : 0);
+    feats.push(/panenka|clash|insult|soiree|boite|alcool|fete|tiktok|buzz|forcer|legendaire|retraite/.test(c) ? 1 : 0);
+    feats.push(treeHeuristic(prompt, choice) / 20);
     return feats;
+  }
+
+  function dilemmaFeatureMatrix(prompt, choices, keywords) {
+    const hs = choices.map((ch) => treeHeuristic(prompt, ch));
+    const hMax = Math.max(...hs);
+    const hMin = Math.min(...hs);
+    const hMean = hs.reduce((a, b) => a + b, 0) / (hs.length || 1);
+    return choices.map((ch, i) => {
+      const b = baseTreeFeatures(prompt, ch, keywords);
+      return b.concat([
+        hs[i] / 20,
+        (hs[i] - hMean) / 20,
+        hs[i] >= hMax - 1e-9 ? 1 : 0,
+        hs[i] === hMin ? 1 : 0,
+        choices.length / 5,
+      ]);
+    });
   }
 
   function evalTree(node, feats) {
@@ -263,10 +302,19 @@
     return feats[node.f] <= node.t ? evalTree(node.l, feats) : evalTree(node.r, feats);
   }
 
-  function scoreTree(prompt, choice) {
+  function pickWithTree(prompt, choices) {
     if (!treeModel || !treeModel.tree) return null;
-    const feats = treeFeatures(prompt, choice, treeModel.keywords || []);
-    return evalTree(treeModel.tree, feats);
+    const M = dilemmaFeatureMatrix(prompt, choices, treeModel.keywords || []);
+    let best = choices[0];
+    let bestScore = -1e9;
+    for (let i = 0; i < choices.length; i++) {
+      const s = evalTree(treeModel.tree, M[i]);
+      if (s > bestScore) {
+        bestScore = s;
+        best = choices[i];
+      }
+    }
+    return { pick: best, score: bestScore };
   }
 
   function advise(prompt, choices, scenarios) {
@@ -282,20 +330,12 @@
     const setup = pickSetup(prompt, c);
     if (setup) return { ...setup, choices: c, prompt };
 
-    // Arbre de décision entraîné (export sklearn)
-    if (treeModel && treeModel.tree) {
-      let best = c[0];
-      let bestScore = -1e9;
-      for (const ch of c) {
-        const s = scoreTree(prompt, ch);
-        if (s != null && s > bestScore) {
-          bestScore = s;
-          best = ch;
-        }
-      }
+    const treePick = pickWithTree(prompt, c);
+    if (treePick) {
+      const pct = treeModel.cv_top1_holdout != null ? ` · CV ${(100 * treeModel.cv_top1_holdout).toFixed(0)}%` : "";
       return {
-        pick: best,
-        reason: `arbre de décision (${treeModel.n_samples || "?"} samples, h≈${bestScore.toFixed(1)})`,
+        pick: treePick.pick,
+        reason: `arbre ranking P(best)≈${treePick.score.toFixed(2)}${pct}`,
         choices: c,
         prompt,
       };
@@ -337,5 +377,5 @@
     return { prompt, choices };
   }
 
-  global.DestinyCoach = { advise, parseBlob, cleanChoices, scoreChoice, setTreeModel, scoreTree };
+  global.DestinyCoach = { advise, parseBlob, cleanChoices, scoreChoice, setTreeModel };
 })(window);
