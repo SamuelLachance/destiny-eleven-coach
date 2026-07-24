@@ -98,6 +98,7 @@
     button:active { transform: scale(.98); }
     .primary { background: var(--accent); color: #16301c; }
     .ghost { background: #e4ece2; color: var(--ink); }
+    a.primary { color: #16301c; }
     #result {
       display: none;
       border-left: 6px solid var(--accent);
@@ -157,6 +158,24 @@ Annoncer la retraite en fin de saison"></textarea>
         <button class="ghost" id="btnClear">Effacer</button>
         <button class="ghost" id="btnExample">Exemple</button>
       </div>
+    </section>
+
+    <section class="card">
+      <div style="font-weight:800;margin-bottom:8px">Mode navigateur (sur le jeu)</div>
+      <p class="muted" style="margin:0 0 10px">
+        GitHub Pages ne peut pas ouvrir Chromium comme en local. À la place&nbsp;:
+        ouvre le jeu, puis active le favori coach — un panneau flottant lit tes choix en direct.
+      </p>
+      <div class="row">
+        <button class="primary" id="btnOpenGame" type="button">1. Ouvrir Destiny Eleven</button>
+        <a class="primary" id="bookmarklet" href="#"
+           style="display:inline-flex;align-items:center;text-decoration:none">2. Favori Coach (glisse-moi)</a>
+        <button class="ghost" id="btnCopyBm" type="button">Copier le favori</button>
+      </div>
+      <p class="muted" id="browserMsg" style="margin-top:10px">
+        Astuce : affiche ta barre de favoris (Ctrl+Shift+B), glisse le bouton vert «&nbsp;2. Favori Coach&nbsp;» dedans.
+        Sur destinyeleven.com, clique le favori une fois — le coach apparaît en bas à droite.
+      </p>
     </section>
 
     <section class="card" id="result">
@@ -234,6 +253,35 @@ Annoncer la retraite en fin de saison"></textarea>
         "Une dernière danse\n" +
         "Annoncer la retraite en fin de saison";
       run();
+    };
+
+    const base = new URL("./", location.href).href;
+    const injectUrl = base + "inject.js";
+    const bmCode =
+      "javascript:(function(){var s=document.createElement('script');s.src='" +
+      injectUrl +
+      "?t='+Date.now();document.documentElement.appendChild(s);})();";
+    const bm = document.getElementById("bookmarklet");
+    bm.href = bmCode;
+    bm.onclick = (e) => {
+      e.preventDefault();
+      document.getElementById("browserMsg").textContent =
+        "Glisse ce bouton dans ta barre de favoris (ne clique pas seulement). Puis ouvre le jeu et clique le favori.";
+    };
+    document.getElementById("btnOpenGame").onclick = () => {
+      window.open("https://destinyeleven.com/", "_blank", "noopener");
+      document.getElementById("browserMsg").textContent =
+        "Jeu ouvert. Sur cet onglet, clique ton favori « Coach » pour afficher le panneau.";
+    };
+    document.getElementById("btnCopyBm").onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(bmCode);
+        document.getElementById("browserMsg").textContent =
+          "Favori copié. Crée un nouveau favori et colle ça dans l’URL.";
+      } catch (e) {
+        document.getElementById("browserMsg").textContent =
+          "Copie manuelle: crée un favori dont l’URL commence par javascript:(function(){...";
+      }
     };
   </script>
 </body>

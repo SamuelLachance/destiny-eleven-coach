@@ -6,8 +6,10 @@ Coach pour [Destiny Eleven](https://destinyeleven.com/) : recommande le choix qu
 
 **https://samuellachance.github.io/destiny-eleven-coach/**
 
-Colle un dilemme + les options → recommandation orientée **score de carrière**
-(OVR, réputation, longévité → trophées / Ballon d’Or), pas l’impact court terme d’une carte.
+- Colle un dilemme, ou
+- **Mode navigateur** : ouvre le jeu + active le **favori Coach** (panneau flottant sur destinyeleven.com)
+
+> GitHub Pages ne peut pas lancer Playwright. Le favori injecte le même coach dans la page du jeu.
 
 ## Local (Flask + navigateur auto)
 
