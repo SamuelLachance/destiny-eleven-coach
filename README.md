@@ -38,7 +38,7 @@ Ouvre http://127.0.0.1:5055 — mode navigateur Playwright avec profil persistan
 - CV **GroupKFold par `event_id`** (aucun événement en train et test)
 - augs bruitées exclues
 - dédup `(event, choix)`
-- métrique officielle = **top-1 holdout CV** (pas le score in-sample)
+- métrique officielle = **top-1 holdout CV ~64%** (chance ~45%), sans leak `event_id`
 
 ```powershell
 .\.venv\Scripts\python export_decision_tree.py
