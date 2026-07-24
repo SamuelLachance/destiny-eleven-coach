@@ -6,7 +6,8 @@ Coach pour [Destiny Eleven](https://destinyeleven.com/) : recommande le choix qu
 
 **https://samuellachance.github.io/destiny-eleven-coach/**
 
-Colle un dilemme + les options → recommandation (oracle des événements du jeu + heuristique anti-retraite précoce).
+Colle un dilemme + les options → recommandation orientée **score de carrière**
+(OVR, réputation, longévité → trophées / Ballon d’Or), pas l’impact court terme d’une carte.
 
 ## Local (Flask + navigateur auto)
 

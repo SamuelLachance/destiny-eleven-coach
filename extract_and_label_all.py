@@ -19,24 +19,21 @@ RAW = Path("data/game_events_raw.json")
 SAMPLES = Path("data/choice_samples.jsonl")
 SCENARIOS = Path("data/game_scenarios.jsonl")
 
-# Poids approx. vers score carriere (alignés esprit Engine / notes finales)
+# Poids alignés sur computeCareerScore du jeu:
+# peakOvr (t/p/m/c) + rep + longévité (éviter inj/retire) → trophées plus tard
 FX_WEIGHTS = {
-    "t": 1.2,  # technique
-    "m": 1.0,  # mental
-    "p": 0.9,  # physique
-    "form": 0.8,
-    "mor": 0.7,  # moral
-    "rep": 1.1,
-    "vis": 0.5,  # visibilite
-    "chem": 0.4,
-    "rel": 0.4,
-    "sal": 0.15,
-    "val": 0.1,
-    "pot": 1.5,
-    "ovr": 1.3,
-    "inj": -1.4,  # jours blessure
-    "fatigue": -0.6,
-    "ego": -0.5,
+    "t": 1.4,   # technique → OVR / peak
+    "p": 1.0,   # physique
+    "m": 1.2,   # mental
+    "c": 1.0,   # charisme / collab
+    "rep": 1.8, # très pondéré dans le score carrière
+    "form": 0.7,
+    "mor": 0.5,
+    "pot": 2.0,
+    "vis": 0.4,
+    "inj": -2.5,  # tue des matchs / saisons / trophées futurs
+    "fatigue": -0.8,
+    "ego": -0.6,
     "stress": -0.5,
 }
 
@@ -72,55 +69,54 @@ def _fill_templates(text: str, club: str = "ton club") -> str:
 
 
 def expected_fx_score(option: dict) -> float:
-    """Prefer game Engine.netImpact expectation; fallback to local weights.
+    """Proxy score CARRIERE (pas netImpact court-terme).
 
-    Important: le flag fx.retire donne un gros bonus court-terme dans le jeu,
-    mais pour MAXIMISER la carriere on prefere souvent jouer encore une saison.
-    On penalise donc les options qui declenchent retire s'il existe une alternative.
+    Objectif jeu = maximiser computeCareerScore:
+    peakOVR + réputation + trophées (WC, Ballon d'Or, C1…) + longévité.
+    Un événement ne donne pas directement un Ballon d'Or, mais booste les
+    stats/rep qui y mènent — et retire/inj les détruisent.
     """
-    base = 0.0
-    if option.get("expectedImpact") is not None:
+    if option.get("expectedCareer") is not None:
+        base = float(option["expectedCareer"])
+    elif option.get("expectedImpact") is not None:
+        # ancien champ: on le traite comme base puis on corrige retraite
         base = float(option["expectedImpact"])
     else:
         outcomes = option.get("outcomes") or []
         if not outcomes:
             return 0.0
-        if outcomes and outcomes[0].get("impact") is not None:
-            tw = sum(float(o.get("weight") or 1) for o in outcomes) or 1.0
-            base = sum(
-                float(o.get("weight") or 1) / tw * float(o.get("impact") or 0) for o in outcomes
-            )
-        else:
-            total_w = sum(float(o.get("weight") or 1) for o in outcomes) or 1.0
-            score = 0.0
-            for o in outcomes:
-                w = float(o.get("weight") or 1) / total_w
-                fx = o.get("fx") or {}
-                s = 0.0
-                for k, v in fx.items():
-                    if k == "trait":
-                        t = str(v).lower()
-                        s += TRAIT_BONUS.get(t, 0) + TRAIT_MALUS.get(t, 0)
-                        continue
-                    if isinstance(v, (int, float)):
-                        s += FX_WEIGHTS.get(k, 0.3) * float(v)
-                score += w * s
-            base = score
+        tw = sum(float(o.get("weight") or 1) for o in outcomes) or 1.0
+        base = 0.0
+        for o in outcomes:
+            w = float(o.get("weight") or 1) / tw
+            fx = o.get("fx") or {}
+            if o.get("career") is not None:
+                base += w * float(o["career"])
+                continue
+            s = 0.0
+            for k, v in fx.items():
+                if k == "trait":
+                    t = str(v).lower()
+                    s += TRAIT_BONUS.get(t, 0) + TRAIT_MALUS.get(t, 0)
+                    continue
+                if k == "retire":
+                    continue
+                if isinstance(v, (int, float)):
+                    s += FX_WEIGHTS.get(k, 0.25) * float(v)
+            if fx.get("retire") is True or fx.get("retire") == 1:
+                s -= 28.0  # saisons / trophées futurs perdus
+            base += w * s
 
-    # penalite retraite (voir docstring)
-    outcomes = option.get("outcomes") or []
-    retire_w = 0.0
-    tw = sum(float(o.get("weight") or 1) for o in outcomes) or 1.0
-    for o in outcomes:
-        fx = o.get("fx") or {}
-        if fx.get("retire") is True or fx.get("retire") == 1:
-            retire_w += float(o.get("weight") or 1) / tw
     label = (option.get("label") or "").lower()
-    if retire_w > 0.2 or re.search(r"annoncer la retraite|prendre votre retraite|s'arrêter en héros|t'arrêter", label):
-        base -= 18.0 * max(retire_w, 0.5)
-    # bonus continuer / derniere danse
+    if re.search(r"annoncer la retraite|prendre votre retraite|s'arrêter en héros|tete haute|tête haute", label):
+        base -= 12.0
     if re.search(r"dernière danse|derniere danse|repousser|encore un an|encore une saison|battre pour|reconquérir|reconquerir", label):
-        base += 8.0
+        base += 6.0
+    # minutes / titulaire = chemin trophées
+    if re.search(r"titulaire|temps de jeu|minutes|garanties", label):
+        base += 3.0
+    if re.search(r"banc|élite banc|elite banc", label):
+        base -= 2.0
     return base
 
 
@@ -167,8 +163,24 @@ def extract() -> dict:
             return {ok:false, err: window.__D11Err || 'missing'};
           }
           const pack = window.__D11;
-          const impact = (fx) => {
-            try { return Engine.netImpact(fx || {}); } catch (e) { return 0; }
+          // Proxy CARRIERE (aligné computeCareerScore): OVR/rep/longévité > impact court terme
+          const careerValue = (fx) => {
+            if (!fx) return 0;
+            let s = 0;
+            s += 1.4*(fx.t||0) + 1.0*(fx.p||0) + 1.2*(fx.m||0) + 1.0*(fx.c||0);
+            s += 1.8*(fx.rep||0);
+            s += 0.7*(fx.form||0) + 0.5*(fx.mor||0);
+            s += 2.0*(fx.pot||0);
+            s -= 2.5*(fx.inj||0);
+            s -= 0.8*(fx.fatigue||0);
+            if (fx.retire) s -= 28; // perd saisons → moins de trophées / Ballon d'Or
+            if (fx.careerEnd || fx.end) s -= 80;
+            if (fx.trait) {
+              const t = String(fx.trait).toLowerCase();
+              if (['leader','clutch','pro','worker','disciplined','loyal'].includes(t)) s += 2.5;
+              if (['party','toxic','diva','fragile'].includes(t)) s -= 3.5;
+            }
+            return s;
           };
           const events = pack.EVENTS.map(ev => ({
             id: ev.id,
@@ -183,14 +195,17 @@ def extract() -> dict:
                 weight: oc.weight,
                 text: String(oc.text || ''),
                 fx: oc.fx || {},
-                impact: impact(oc.fx || {}),
+                career: careerValue(oc.fx || {}),
+                impact: (() => { try { return Engine.netImpact(oc.fx||{}); } catch(e) { return 0; } })(),
               }));
               const tw = outcomes.reduce((s, oc) => s + (oc.weight || 1), 0) || 1;
+              const expectedCareer = outcomes.reduce((s, oc) => s + ((oc.weight || 1) / tw) * (oc.career || 0), 0);
               const expected = outcomes.reduce((s, oc) => s + ((oc.weight || 1) / tw) * (oc.impact || 0), 0);
               return {
                 label: String(o.label || o.text || ''),
                 hint: o.hint || null,
                 tag: o.tag || null,
+                expectedCareer,
                 expectedImpact: expected,
                 outcomes,
               };
@@ -203,8 +218,8 @@ def extract() -> dict:
             entourages: (pack.ENTOURAGES||[]).map(o => ({name:o.name, desc:o.desc||''})),
             nationalities: (pack.NATIONALITIES||[]).map(o => ({name:o.name})),
           };
-          return {ok:true, nEvents: events.length, events, setup,
-                  micro:(pack.MICRO_EVENTS||[]).map(m=>({id:m.id,text:String(m.text||''),fx:m.fx||{}, impact: impact(m.fx||{})}))};
+          return {ok:true, nEvents: events.length, events, setup, labelGoal:'career_score',
+                  micro:(pack.MICRO_EVENTS||[]).map(m=>({id:m.id,text:String(m.text||''),fx:m.fx||{}, career: careerValue(m.fx||{})}))};
         }"""
         )
         browser.close()
