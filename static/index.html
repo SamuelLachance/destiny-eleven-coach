@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Destiny Eleven Coach</title>
+  <style>
+    :root {
+      --bg: #0f3d2e;
+      --bg2: #145c43;
+      --card: #f7faf6;
+      --ink: #14241c;
+      --accent: #1db954;
+      --warn: #e8c34a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        repeating-linear-gradient(-45deg, transparent, transparent 18px, rgba(255,255,255,.04) 18px, rgba(255,255,255,.04) 36px),
+        linear-gradient(160deg, var(--bg), var(--bg2));
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 28px 16px 48px;
+    }
+    h1 {
+      color: #fff;
+      margin: 0 0 6px;
+      font-size: 1.7rem;
+      letter-spacing: -.02em;
+    }
+    .sub { color: rgba(255,255,255,.78); margin-bottom: 22px; }
+    .card {
+      background: var(--card);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.18);
+    }
+    label { display: block; font-weight: 650; margin-bottom: 8px; font-size: .92rem; }
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      border: 1px solid #cfd9cc;
+      border-radius: 12px;
+      padding: 12px;
+      font: inherit;
+      resize: vertical;
+    }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .primary { background: var(--accent); color: #062412; }
+    .ghost { background: #e8eee6; color: var(--ink); }
+    .danger { background: #f2d6d6; color: #6b1d1d; }
+    #result {
+      display: none;
+      border-left: 5px solid var(--accent);
+      padding-left: 14px;
+    }
+    #result.show { display: block; }
+    .pick {
+      font-size: 1.35rem;
+      font-weight: 800;
+      margin: 6px 0 8px;
+    }
+    .muted { color: #5b6b60; font-size: .92rem; }
+    .choices { margin: 8px 0 0; padding-left: 18px; }
+    .live-dot {
+      display: inline-block;
+      width: 9px; height: 9px; border-radius: 50%;
+      background: #999; margin-right: 6px;
+    }
+    .live-dot.on { background: #1db954; box-shadow: 0 0 0 3px rgba(29,185,84,.25); }
+    code { background: #e8eee6; padding: 1px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Destiny Eleven Coach</h1>
+    <p class="sub">Conseil local — colle un dilemme ou lance le navigateur auto.</p>
+
+    <section class="card">
+      <label for="blob">Coller le texte du dilemme + les choix (1 par ligne)</label>
+      <textarea id="blob" placeholder="Ex:
+Penalty pour vous à la 88e…
+Prendre le ballon
+Laisser le tireur attitré
+Le prendre et frapper en force"></textarea>
+      <div class="row">
+        <button class="primary" id="btnAdvise">Conseiller</button>
+        <button class="ghost" id="btnClear">Effacer</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div style="font-weight:700;margin-bottom:8px">
+        <span class="live-dot" id="dot"></span>
+        Mode navigateur (lit Destiny Eleven en direct)
+      </div>
+      <p class="muted">Ouvre Chromium sur destinyeleven.com. Joue dedans — le conseil se met à jour ici.</p>
+      <div class="row">
+        <button class="primary" id="btnStart">Lancer navigateur</button>
+        <button class="danger" id="btnStop">Stop</button>
+      </div>
+      <p class="muted" id="browserMsg" style="margin-top:10px"></p>
+      <p class="muted" style="margin-top:6px;font-size:0.85rem">
+        Le Chromium du coach garde ta carrière (localStorage) dans le dossier <code>browser_profile</code>.
+        Relance « Lancer navigateur » pour reprendre la même partie — ce n’est pas ton Chrome habituel.
+      </p>
+    </section>
+
+    <section class="card">
+      <div style="font-weight:700;margin-bottom:8px">Mode ML</div>
+      <p class="muted">Modele deja entraine — les recos affichent ML quand le navigateur detecte un dilemme.</p>
+      <pre style="background:#e8eee6;padding:10px;border-radius:10px;overflow:auto;font-size:.8rem">.\.venv\Scripts\python collect_games.py --games 30 --headed
+.\.venv\Scripts\python train_model.py</pre>
+    </section>
+
+    <section class="card" id="result">
+      <div class="muted">Recommandation</div>
+      <div class="pick" id="pick">—</div>
+      <div class="muted" id="reason"></div>
+      <div class="muted" style="margin-top:10px">Situation</div>
+      <div id="prompt"></div>
+      <ol class="choices" id="choices"></ol>
+    </section>
+  </main>
+
+  <script>
+    const result = document.getElementById('result');
+    const pickEl = document.getElementById('pick');
+    const reasonEl = document.getElementById('reason');
+    const promptEl = document.getElementById('prompt');
+    const choicesEl = document.getElementById('choices');
+    const dot = document.getElementById('dot');
+    const browserMsg = document.getElementById('browserMsg');
+
+    function isRealChoice(t) {
+      return /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(t || '');
+    }
+
+    function showAdvice(data) {
+      if (!data || !result) return;
+      const choices = (data.choices || []).filter(isRealChoice);
+      let pick = data.pick || '';
+      if (!isRealChoice(pick)) pick = '';
+      if (!pick && !choices.length && !data.prompt) return;
+      result.classList.add('show');
+      pickEl.textContent = pick ? ('→ ' + pick) : '→ (en attente)';
+      reasonEl.textContent = data.reason || '';
+      promptEl.textContent = data.prompt || '';
+      choicesEl.innerHTML = '';
+      choices.forEach(c => {
+        const li = document.createElement('li');
+        li.textContent = c + (c === pick ? '  <<<' : '');
+        choicesEl.appendChild(li);
+      });
+    }
+
+    document.getElementById('btnAdvise').onclick = async () => {
+      const blob = document.getElementById('blob').value.trim();
+      const lines = blob.split(/\n/).map(l => l.trim()).filter(Boolean);
+      let prompt = blob;
+      let choices = [];
+      if (lines.length >= 2) {
+        // dernière lignes = choix si courtes
+        const shortTail = [];
+        for (let i = lines.length - 1; i >= 0; i--) {
+          if (lines[i].length <= 120) shortTail.unshift(lines[i]);
+          else break;
+        }
+        if (shortTail.length >= 2) {
+          choices = shortTail;
+          prompt = lines.slice(0, lines.length - shortTail.length).join(' ') || lines[0];
+        }
+      }
+      const res = await fetch('/api/advise', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ prompt, choices })
+      });
+      showAdvice(await res.json());
+    };
+
+    document.getElementById('btnClear').onclick = () => {
+      document.getElementById('blob').value = '';
+    };
+
+    document.getElementById('btnStart').onclick = async () => {
+      browserMsg.textContent = 'Ouverture…';
+      const res = await fetch('/api/browser/start', { method: 'POST' });
+      const data = await res.json();
+      browserMsg.textContent = data.message || 'ok';
+    };
+
+    document.getElementById('btnStop').onclick = async () => {
+      await fetch('/api/browser/stop', { method: 'POST' });
+      browserMsg.textContent = 'Arrêté';
+      dot.classList.remove('on');
+    };
+
+    setInterval(async () => {
+      try {
+        const res = await fetch('/api/status?t=' + Date.now());
+        const s = await res.json();
+        dot.classList.toggle('on', !!s.running);
+        if (s.error) browserMsg.textContent = s.error;
+        else if (s.running) browserMsg.textContent = 'navigateur actif';
+        if (s.pick || (s.choices && s.choices.length)) showAdvice(s);
+      } catch (e) {
+        console.error(e);
+      }
+    }, 500);
+  </script>
+</body>
+</html>

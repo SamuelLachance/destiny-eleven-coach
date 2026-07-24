@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Destiny Eleven Coach</title>
+  <meta name="description" content="Coach gratuit pour Destiny Eleven : colle un dilemme, reçois le meilleur choix pour maximiser ta carrière." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --pitch: #0b3d2c;
+      --pitch2: #126b4a;
+      --line: rgba(232, 245, 236, 0.14);
+      --card: #f4f7f2;
+      --ink: #102018;
+      --accent: #c8f560;
+      --accent2: #7dffb3;
+      --warn: #ffb454;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Manrope, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 500px at 10% -10%, rgba(125,255,179,.18), transparent 55%),
+        radial-gradient(900px 420px at 100% 0%, rgba(200,245,96,.12), transparent 50%),
+        linear-gradient(165deg, var(--pitch), var(--pitch2) 55%, #0a2f23);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(90deg, transparent 0 46px, var(--line) 46px 48px),
+        repeating-linear-gradient(0deg, transparent 0 46px, var(--line) 46px 48px);
+      opacity: .35;
+      mask-image: linear-gradient(to bottom, black, transparent 85%);
+    }
+    main {
+      position: relative;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 36px 18px 64px;
+    }
+    .brand {
+      font-family: "Bebas Neue", sans-serif;
+      font-size: clamp(2.8rem, 9vw, 4.4rem);
+      line-height: .9;
+      letter-spacing: .02em;
+      color: #f4fff7;
+      margin: 0 0 10px;
+      text-shadow: 0 8px 30px rgba(0,0,0,.25);
+      animation: rise .7s ease both;
+    }
+    .sub {
+      color: rgba(244,255,247,.78);
+      max-width: 38rem;
+      font-size: 1.02rem;
+      margin: 0 0 28px;
+      animation: rise .7s .08s ease both;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 22px;
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.22);
+      animation: rise .7s .12s ease both;
+    }
+    label { display: block; font-weight: 800; margin-bottom: 8px; font-size: .92rem; }
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      border: 1.5px solid #d5e0d4;
+      border-radius: 14px;
+      padding: 14px;
+      font: inherit;
+      resize: vertical;
+      background: #fbfffa;
+    }
+    textarea:focus { outline: 2px solid var(--pitch2); border-color: transparent; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform .15s ease, filter .15s ease;
+    }
+    button:hover { transform: translateY(-1px); filter: brightness(1.03); }
+    button:active { transform: scale(.98); }
+    .primary { background: var(--accent); color: #16301c; }
+    .ghost { background: #e4ece2; color: var(--ink); }
+    #result {
+      display: none;
+      border-left: 6px solid var(--accent);
+      padding-left: 16px;
+    }
+    #result.show { display: block; animation: rise .45s ease both; }
+    .pick {
+      font-family: "Bebas Neue", sans-serif;
+      font-size: clamp(1.8rem, 5vw, 2.4rem);
+      letter-spacing: .02em;
+      margin: 4px 0 8px;
+      color: var(--pitch);
+    }
+    .muted { color: #5b6b60; font-size: .92rem; }
+    .choices { margin: 8px 0 0; padding-left: 18px; }
+    .choices li.best { font-weight: 800; color: #0f5132; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,.1);
+      color: #eafff1;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: .85rem;
+      margin-bottom: 18px;
+      animation: rise .7s .05s ease both;
+    }
+    footer {
+      margin-top: 22px;
+      color: rgba(244,255,247,.65);
+      font-size: .85rem;
+    }
+    footer a { color: var(--accent2); }
+    code { background: #e8eee6; padding: 1px 6px; border-radius: 6px; }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="pill"><span aria-hidden="true">●</span> Live sur GitHub Pages · 176 événements du jeu</p>
+    <h1 class="brand">Destiny Eleven Coach</h1>
+    <p class="sub">Colle un dilemme + tes choix (un par ligne). Le coach recommande l’option qui maximise ta carrière — discipline, minutes, pas de retraite précoce.</p>
+
+    <section class="card">
+      <label for="blob">Dilemme + choix</label>
+      <textarea id="blob" placeholder="Exemple :
+Le corps envoie des factures… encore une saison, ou tirer sa révérence ?
+Une dernière danse
+Annoncer la retraite en fin de saison"></textarea>
+      <div class="row">
+        <button class="primary" id="btnAdvise">Conseiller</button>
+        <button class="ghost" id="btnClear">Effacer</button>
+        <button class="ghost" id="btnExample">Exemple</button>
+      </div>
+    </section>
+
+    <section class="card" id="result">
+      <div class="muted">Recommandation</div>
+      <div class="pick" id="pick">—</div>
+      <div class="muted" id="reason"></div>
+      <div class="muted" style="margin-top:12px">Situation</div>
+      <div id="prompt"></div>
+      <ol class="choices" id="choices"></ol>
+    </section>
+
+    <footer>
+      Jouer sur <a href="https://destinyeleven.com/" target="_blank" rel="noopener">destinyeleven.com</a>
+      · Code <a id="repoLink" href="https://github.com/SamuelLachance/destiny-eleven-coach" target="_blank" rel="noopener">GitHub</a>
+      · En local : Flask + Chromium auto dans le repo
+    </footer>
+  </main>
+
+  <script src="./advisor.js"></script>
+  <script>
+    let scenarios = [];
+    fetch("./scenarios.json")
+      .then((r) => r.json())
+      .then((data) => { scenarios = data; })
+      .catch(() => { scenarios = []; });
+
+    const result = document.getElementById("result");
+    const pickEl = document.getElementById("pick");
+    const reasonEl = document.getElementById("reason");
+    const promptEl = document.getElementById("prompt");
+    const choicesEl = document.getElementById("choices");
+
+    function showAdvice(data) {
+      if (!data || !data.pick) return;
+      result.classList.add("show");
+      pickEl.textContent = "→ " + data.pick;
+      reasonEl.textContent = data.reason || "";
+      promptEl.textContent = data.prompt || "";
+      choicesEl.innerHTML = "";
+      (data.choices || []).forEach((c) => {
+        const li = document.createElement("li");
+        li.textContent = c;
+        if (c === data.pick) li.classList.add("best");
+        choicesEl.appendChild(li);
+      });
+    }
+
+    function run() {
+      const blob = document.getElementById("blob").value.trim();
+      const parsed = DestinyCoach.parseBlob(blob);
+      const advice = DestinyCoach.advise(parsed.prompt, parsed.choices, scenarios);
+      showAdvice(advice);
+    }
+
+    document.getElementById("btnAdvise").onclick = run;
+    document.getElementById("btnClear").onclick = () => {
+      document.getElementById("blob").value = "";
+      result.classList.remove("show");
+    };
+    document.getElementById("btnExample").onclick = () => {
+      document.getElementById("blob").value =
+        "Le corps envoie des factures, la tête hésite. Tout le monde pose LA question : encore une saison, ou tirer sa révérence ?\n" +
+        "Une dernière danse\n" +
+        "Annoncer la retraite en fin de saison";
+      run();
+    };
+  </script>
+</body>
+</html>
