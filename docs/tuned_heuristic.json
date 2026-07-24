@@ -1,0 +1,141 @@
+{
+  "type": "tuned_heuristic_rules",
+  "cv_top1_holdout": 0.6136363636363636,
+  "default_cv_top1_holdout": 0.6193181818181818,
+  "chance": 0.4919507575757576,
+  "n_dilemmas": 176,
+  "rules": [
+    {
+      "name": "good_base",
+      "choice_pat": "collectif|travailler|soigner|repos|verif|licence|prudent|discret|ecout|rentrer|hygiene|garant|diplomat|excus|focus|danse|repousser|encore|titulaire|minutes",
+      "prompt_pat": null,
+      "weight": -0.16423838745393235,
+      "default": 5.0
+    },
+    {
+      "name": "bad_base",
+      "choice_pat": "panenka|clash|insult|engueul|soiree|boite|alcool|fete|tiktok|buzz|forcer|dopage|casino|legendaire|annoncer la retraite|prendre votre retraite|banc",
+      "prompt_pat": null,
+      "weight": -0.566378146471838,
+      "default": -6.0
+    },
+    {
+      "name": "inj_good",
+      "choice_pat": "repos|soigner|medical|inapte|suivre|repousser",
+      "prompt_pat": "bless|douleur|medical|kine|radios",
+      "weight": 1.6064979680558582,
+      "default": 6.0
+    },
+    {
+      "name": "inj_bad",
+      "choice_pat": "forcer|cacher|anti-douleur|annoncer la retraite",
+      "prompt_pat": "bless|douleur|medical|kine|radios",
+      "weight": -1.2370943919631194,
+      "default": -6.0
+    },
+    {
+      "name": "agent_good",
+      "choice_pat": "verif|licence|federation|refuser|lire",
+      "prompt_pat": "agent|frais|sponsor",
+      "weight": -0.6963010002373644,
+      "default": 8.0
+    },
+    {
+      "name": "agent_bad",
+      "choice_pat": "^payer|donner|signer pour",
+      "prompt_pat": "agent|frais|sponsor",
+      "weight": -2.394141006280414,
+      "default": -8.0
+    },
+    {
+      "name": "pen_force",
+      "choice_pat": "force",
+      "prompt_pat": "penalty",
+      "weight": -0.5179993250115199,
+      "default": 4.0
+    },
+    {
+      "name": "pen_pan",
+      "choice_pat": "panenka",
+      "prompt_pat": "penalty",
+      "weight": -5.0,
+      "default": -5.0
+    },
+    {
+      "name": "ret_good",
+      "choice_pat": "danse|repousser|encore|battre|reconqu",
+      "prompt_pat": "retrait|radios|reverence",
+      "weight": 0.21267708753501072,
+      "default": 10.0
+    },
+    {
+      "name": "ret_bad",
+      "choice_pat": "annoncer la retraite|prendre votre retraite|tete haute",
+      "prompt_pat": "retrait|radios|reverence",
+      "weight": -2.2126838407791056,
+      "default": -12.0
+    },
+    {
+      "name": "night_good",
+      "choice_pat": "rentrer|refuser|dormir",
+      "prompt_pat": "soir|boite|fete|nuit",
+      "weight": 5.0,
+      "default": 5.0
+    },
+    {
+      "name": "night_bad",
+      "choice_pat": "accepter|profiter|verre",
+      "prompt_pat": "soir|boite|fete|nuit",
+      "weight": -5.0,
+      "default": -5.0
+    },
+    {
+      "name": "coach_good",
+      "choice_pat": "ecout|travaill|respect|discut",
+      "prompt_pat": "coach|staff|entrain",
+      "weight": -0.15653581481409243,
+      "default": 5.0
+    },
+    {
+      "name": "coach_bad",
+      "choice_pat": "clash|insult|engueul",
+      "prompt_pat": "coach|staff|entrain",
+      "weight": -6.0,
+      "default": -6.0
+    },
+    {
+      "name": "press_good",
+      "choice_pat": "discret|equipe|collectif|diplomat|excus",
+      "prompt_pat": "presse|journal|interview|media|reseaux",
+      "weight": -1.2426263217744469,
+      "default": 4.0
+    },
+    {
+      "name": "press_bad",
+      "choice_pat": "clash|attaquer|provoc|polemique|insult",
+      "prompt_pat": "presse|journal|interview|media|reseaux",
+      "weight": -1.8019086978597345,
+      "default": -5.0
+    },
+    {
+      "name": "playtime_go",
+      "choice_pat": "d1|d2|indemnite|partir|accepter|offre|titulaire|pret",
+      "prompt_pat": "temps de jeu|banc|famelique|remplacant",
+      "weight": 2.2045608946832944,
+      "default": 5.0
+    },
+    {
+      "name": "playtime_stay",
+      "choice_pat": "^rester\\b",
+      "prompt_pat": "temps de jeu|banc|famelique|remplacant",
+      "weight": -4.0,
+      "default": -4.0
+    }
+  ],
+  "leak_checks": {
+    "group_kfold_event": true,
+    "weights_fit_inside_train_fold_for_cv": true,
+    "eval_against_career_best_i": true,
+    "metrics_holdout_only": true
+  }
+}

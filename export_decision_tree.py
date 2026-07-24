@@ -1,339 +1,246 @@
 """
-Arbre de decision — ranking DANS le dilemme, sans leak.
+Ranker leak-free: meilleures methodes empiriques sur GroupKFold(event_id).
 
-Idee simple:
-- On ne predit pas un score abstrait isole
-- On predit P(ce choix est le meilleur | prompt + autres options)
-- Features = texte du choix + comparaison aux freres du meme dilemme
-- Split GroupKFold par event_id (aucun event en train et test)
+Compare:
+- heuristique carriere
+- LogisticRegression is_best + blend
+- Ridge regression sur scores carriere (pointwise) + blend
 
-Export JSON pour GitHub Pages.
+Export JS = poids lineaires du meilleur modele.
 """
 
 from __future__ import annotations
 
 import json
-import re
-import unicodedata
-from collections import defaultdict
 from pathlib import Path
 
 import joblib
 import numpy as np
+from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.model_selection import GroupKFold
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.preprocessing import StandardScaler
 
-SAMPLES = Path("data/choice_samples.jsonl")
-SCENARIOS = Path("data/game_scenarios.jsonl")
+from rank_features import (
+    CLUBS,
+    KEYWORDS,
+    heur_best,
+    heuristic,
+    load_dilemmas,
+    matrix,
+    ranking_acc,
+    resolve_best,
+)
+
 OUT_JSON = Path("docs/tree_model.json")
 OUT_JOBLIB = Path("models/choice_tree.joblib")
 OUT_REPORT = Path("docs/tree_train_report.json")
 
-KEYWORDS = [
-    "collectif", "hygiene", "repos", "soigner", "medecin", "travailler",
-    "verifier", "licence", "payer", "panenka", "force", "autorite",
-    "legendaire", "promettre", "refuser", "rester", "accepter", "signer",
-    "transfert", "offre", "salaire", "bless", "douleur", "soiree", "alcool",
-    "coach", "presse", "agent", "contrat", "titulaire", "banc", "selection",
-    "penalty", "derby", "clash", "prudent", "investir", "boite", "pret",
-    "reseaux", "sponsor", "medical", "garanties", "focus", "staff", "inapte",
-    "rentrer", "dormir", "minutes", "retraite", "danse", "repousser",
-]
 
-
-def _norm(s: str) -> str:
-    s = (s or "").lower()
-    s = unicodedata.normalize("NFKD", s)
-    return "".join(ch for ch in s if not unicodedata.combining(ch))
-
-
-def _has(pat: str, text: str) -> float:
-    return 1.0 if re.search(pat, text) else 0.0
-
-
-def heuristic(prompt: str, choice: str) -> float:
-    """Signal pro/safe compact (meme idee que le coach, pas le label Engine)."""
-    c, p = _norm(choice), _norm(prompt)
-    s = 0.0
-    s += 5 * _has(r"collectif|travailler|soigner|repos|verif|licence|prudent|discret|ecout|rentrer|hygiene|garant|diplomat|excus|focus|danse|repousser|encore", c)
-    s -= 6 * _has(r"panenka|clash|insult|engueul|soiree|boite|alcool|fete|tiktok|buzz|forcer|dopage|casino|legendaire|annoncer la retraite|prendre votre retraite", c)
-    if _has(r"bless|douleur|medical|kine", p):
-        s += 6 * _has(r"repos|soigner|medical|inapte|suivre", c)
-        s -= 6 * _has(r"forcer|cacher|anti-douleur", c)
-    if _has(r"agent|frais", p):
-        s += 8 * _has(r"verif|licence|federation|refuser|lire", c)
-        s -= 8 * _has(r"^payer|donner", c)
-    if _has(r"penalty|penalty", p):
-        s += 4 * _has(r"force", c)
-        s -= 5 * _has(r"panenka", c)
-    if _has(r"retrait|radios|reverence", p):
-        s += 10 * _has(r"danse|repousser|encore|battre|reconqu", c)
-        s -= 12 * _has(r"annoncer la retraite|prendre votre retraite|tete haute", c)
-    if _has(r"soir|boite|fete|nuit", p):
-        s += 5 * _has(r"rentrer|refuser|dormir", c)
-        s -= 5 * _has(r"accepter|profiter|verre", c)
-    return s
-
-
-def base_features(prompt: str, choice: str) -> list[float]:
-    p, c = _norm(prompt), _norm(choice)
-    feats: list[float] = []
-    for kw in KEYWORDS:
-        feats.append(1.0 if kw in c else 0.0)
-        feats.append(1.0 if kw in p else 0.0)
-    feats.append(min(len(c), 200) / 100.0)
-    feats.append(_has(r"^\s*collectif\b", c))
-    feats.append(1.0 if "legendaire" in c else 0.0)
-    feats.append(_has(r"prudent|sagesse", c))
-    feats.append(_has(
-        r"soigner|repos|verif|travailler|ecout|discret|prudent|hygiene|rentrer|"
-        r"medical|present|garant|collectif|excus|focus|licence|danse|repousser",
-        c,
-    ))
-    feats.append(_has(
-        r"panenka|clash|insult|soiree|boite|alcool|fete|tiktok|buzz|forcer|"
-        r"legendaire|retraite",
-        c,
-    ))
-    h = heuristic(prompt, choice)
-    feats.append(h / 20.0)
-    return feats
-
-
-def dilemma_matrix(prompt: str, choices: list[str]) -> np.ndarray:
-    """Features absolues + relatives au dilemme (valide a l'inference: on a tous les choix)."""
-    bases = [base_features(prompt, ch) for ch in choices]
-    hs = [heuristic(prompt, ch) for ch in choices]
-    h_max = max(hs) if hs else 0.0
-    h_mean = float(np.mean(hs)) if hs else 0.0
-    rows = []
-    for i, b in enumerate(bases):
-        rel = [
-            hs[i] / 20.0,
-            (hs[i] - h_mean) / 20.0,
-            1.0 if hs[i] >= h_max - 1e-9 else 0.0,
-            1.0 if hs[i] == min(hs) else 0.0,
-            len(choices) / 5.0,
-        ]
-        rows.append(b + rel)
-    return np.asarray(rows, dtype=np.float64)
-
-
-N_BASE = len(base_features("", "x"))
-N_FEATS = N_BASE + 5
-
-
-def feature_names() -> list[str]:
-    names = []
-    for kw in KEYWORDS:
-        names.append(f"c:{kw}")
-        names.append(f"p:{kw}")
-    names += ["len_c", "tag_collectif", "tag_legendaire", "tag_prudent", "safe", "risk", "heur_abs"]
-    names += ["heur", "heur_rel", "heur_is_max", "heur_is_min", "n_choices"]
-    return names
-
-
-def tree_to_dict(clf) -> dict:
-    t = clf.tree_
-    # classes_: expect [0,1] for is_best
-    classes = [int(c) for c in clf.classes_]
-
-    def leaf_prob_best(node_id: int) -> float:
-        # value shape (n_nodes, 1, n_classes) counts
-        counts = t.value[node_id][0]
-        total = float(counts.sum()) or 1.0
-        # prob of class 1 (is_best)
-        if 1 in classes:
-            idx = classes.index(1)
-            return float(counts[idx] / total)
-        return float(counts[-1] / total)
-
-    def rec(i: int) -> dict:
-        if t.feature[i] < 0:
-            return {"v": leaf_prob_best(i)}
-        return {
-            "f": int(t.feature[i]),
-            "t": float(t.threshold[i]),
-            "l": rec(t.children_left[i]),
-            "r": rec(t.children_right[i]),
-        }
-
-    return rec(0)
-
-
-def load_dilemmas() -> list[dict]:
-    """Une ligne = un dilemme complet (pas des samples isoles)."""
-    # Prefer scenarios.jsonl (canonique)
-    dilemmas = []
-    seen = set()
-    if SCENARIOS.exists():
-        for line in SCENARIOS.open(encoding="utf-8"):
-            s = json.loads(line)
-            eid = s.get("id")
-            ch = s.get("choices") or []
-            if not eid or eid in seen or len(ch) < 2:
-                continue
-            seen.add(eid)
-            dilemmas.append(
-                {
-                    "group": f"ev:{eid}",
-                    "id": eid,
-                    "prompt": s["prompt"],
-                    "choices": ch,
-                    "best_i": int(s["best_i"]),
-                    "source": "game",
-                }
-            )
-
-    # Setup / manual depuis samples (groupés)
-    by = defaultdict(list)
-    if SAMPLES.exists():
-        for line in SAMPLES.open(encoding="utf-8"):
-            r = json.loads(line)
-            if r.get("source") in ("game_event", "game_aug"):
-                continue
-            if not r.get("choice") or r.get("label") is None:
-                continue
-            g = f"other:{_norm(r.get('prompt') or '')[:100]}"
-            by[g].append(r)
-    for g, rs in by.items():
-        # rebuild choices unique
-        choices = []
-        labels = []
-        for r in rs:
-            if r["choice"] in choices:
-                continue
-            choices.append(r["choice"])
-            labels.append(float(r["label"]))
-        if len(choices) < 2:
-            continue
-        best_i = int(np.argmax(labels))
-        dilemmas.append(
-            {
-                "group": g,
-                "id": g,
-                "prompt": rs[0]["prompt"],
-                "choices": choices,
-                "best_i": best_i,
-                "source": "other",
-            }
-        )
-    return dilemmas
-
-
-def assert_no_leak(tr_g, te_g, fold: int) -> None:
-    inter = set(tr_g) & set(te_g)
-    if inter:
-        raise RuntimeError(f"LEAK fold {fold}: {list(inter)[:5]}")
-
-
-def expand(dilemmas: list[dict]):
-    X, y, groups = [], [], []
+def expand_cls(dilemmas, soft=True, augment=False):
+    X, y, g = [], [], []
     for d in dilemmas:
-        M = dilemma_matrix(d["prompt"], d["choices"])
-        for i in range(len(d["choices"])):
-            X.append(M[i])
-            y.append(1 if i == d["best_i"] else 0)
-            groups.append(d["group"])
-    return np.asarray(X, float), np.asarray(y, int), np.asarray(groups)
+        best = resolve_best(d) if soft else int(d["best_i"])
+        prompts = [d["prompt"]]
+        if augment:
+            for club in CLUBS:
+                if "ton club" in d["prompt"]:
+                    prompts.append(d["prompt"].replace("ton club", club))
+        for pr in dict.fromkeys(prompts):
+            M = matrix(pr, d["choices"])
+            for i in range(len(d["choices"])):
+                X.append(M[i])
+                y.append(1 if i == best else 0)
+                g.append(d["group"])
+    return np.asarray(X, float), np.asarray(y, int), np.asarray(g)
 
 
-def predict_best(clf, prompt: str, choices: list[str]) -> str:
-    M = dilemma_matrix(prompt, choices)
-    # predict_proba column for class 1
-    if hasattr(clf, "predict_proba"):
-        proba = clf.predict_proba(M)
-        classes = list(clf.classes_)
-        idx = classes.index(1) if 1 in classes else -1
-        scores = proba[:, idx]
-    else:
-        scores = clf.predict(M)
-    return choices[int(np.argmax(scores))]
+def expand_reg(dilemmas, augment=False):
+    """Cibles = scores carriere (qualites), pas juste is_best."""
+    X, y, g = [], [], []
+    for d in dilemmas:
+        scores = d.get("scores")
+        if not scores:
+            scores = [1.0 if i == int(d["best_i"]) else 0.0 for i in range(len(d["choices"]))]
+        prompts = [d["prompt"]]
+        if augment:
+            for club in CLUBS:
+                if "ton club" in d["prompt"]:
+                    prompts.append(d["prompt"].replace("ton club", club))
+        for pr in dict.fromkeys(prompts):
+            M = matrix(pr, d["choices"])
+            for i, sc in enumerate(scores):
+                X.append(M[i])
+                y.append(float(sc))
+                g.append(d["group"])
+    return np.asarray(X, float), np.asarray(y, float), np.asarray(g)
 
 
-def ranking_acc(clf, dilemmas: list[dict]) -> float:
-    if not dilemmas:
-        return 0.0
-    ok = sum(
-        1
-        for d in dilemmas
-        if predict_best(clf, d["prompt"], d["choices"]) == d["choices"][d["best_i"]]
-    )
-    return ok / len(dilemmas)
+def predict_lr(clf, scaler, prompt, choices):
+    M = matrix(prompt, choices)
+    proba = clf.predict_proba(scaler.transform(M))
+    idx = list(clf.classes_).index(1) if 1 in clf.classes_ else -1
+    return proba[:, idx]
 
 
-def main() -> None:
-    dilemmas = load_dilemmas()
-    print(f"dilemmas={len(dilemmas)}")
-    X, y, groups = expand(dilemmas)
-    assert X.shape[1] == N_FEATS == len(feature_names())
-    print(f"rows={len(y)} pos_rate={y.mean():.2f} dim={X.shape[1]} groups={len(set(groups))}")
+def predict_ridge(reg, scaler, prompt, choices):
+    return reg.predict(scaler.transform(matrix(prompt, choices)))
 
-    n_splits = min(5, len(set(groups)))
-    gkf = GroupKFold(n_splits=n_splits)
-    fold_acc = []
-    fold_n = []
 
-    # index dilemmas by group for holdout lists
-    by_g = {d["group"]: d for d in dilemmas}
+def blend_pick(ml_scores, prompt, choices, w_h):
+    hs = np.asarray([heuristic(prompt, ch) for ch in choices], float)
+    hn = (hs - hs.min()) / (hs.max() - hs.min() + 1e-9)
+    ml = np.asarray(ml_scores, float)
+    mn = (ml - ml.min()) / (ml.max() - ml.min() + 1e-9)
+    return choices[int(np.argmax(w_h * hn + (1 - w_h) * mn))]
 
-    for fold, (tr, te) in enumerate(gkf.split(X, y, groups), 1):
-        assert_no_leak(groups[tr], groups[te], fold)
-        te_groups = sorted(set(groups[te]))
-        holdout = [by_g[g] for g in te_groups if g in by_g]
 
-        clf = DecisionTreeClassifier(
-            max_depth=6,
-            min_samples_leaf=8,
-            min_samples_split=16,
-            class_weight="balanced",
-            random_state=40 + fold,
-        )
-        clf.fit(X[tr], y[tr])
-        acc = ranking_acc(clf, holdout)
-        fold_acc.append(acc)
-        fold_n.append(len(holdout))
-        print(f"fold {fold}: holdout_events={len(holdout)} top1={100*acc:.1f}%")
+def fold_cv(dilemmas, method: str, w_h: float) -> float:
+    g_list = np.asarray([d["group"] for d in dilemmas])
+    Zd = np.arange(len(dilemmas)).reshape(-1, 1)
+    gkf = GroupKFold(n_splits=5)
+    accs, ns = [], []
+    for tr, te in gkf.split(Zd, np.zeros(len(dilemmas)), g_list):
+        tr_d = [dilemmas[i] for i in tr]
+        te_d = [dilemmas[i] for i in te]
+        assert not (set(g_list[tr]) & set(g_list[te]))
 
-    cv = float(np.average(fold_acc, weights=fold_n))
-    chance = float(np.mean([1 / len(d["choices"]) for d in dilemmas]))
-    print("---")
-    print(f"CV top-1 holdout (no leak): {100*cv:.1f}%")
-    print(f"chance: {100*chance:.1f}%")
+        if method == "heur":
+            fn = heur_best
+        elif method == "lr":
+            X, y, _ = expand_cls(tr_d, soft=True, augment=True)
+            sc = StandardScaler().fit(X)
+            clf = LogisticRegression(
+                C=0.5, max_iter=4000, class_weight="balanced", random_state=0
+            )
+            clf.fit(sc.transform(X), y)
 
-    clf_all = DecisionTreeClassifier(
-        max_depth=6,
-        min_samples_leaf=8,
-        min_samples_split=16,
-        class_weight="balanced",
-        random_state=42,
-    )
-    clf_all.fit(X, y)
-    in_sample = ranking_acc(clf_all, dilemmas)
-    print(f"(debug) in-sample top1={100*in_sample:.1f}% — pas la metrique officielle")
+            def fn(p, c, _clf=clf, _sc=sc, _w=w_h):
+                if _w >= 0.999:
+                    return heur_best(p, c)
+                ml = predict_lr(_clf, _sc, p, c)
+                if _w <= 0.001:
+                    return c[int(np.argmax(ml))]
+                return blend_pick(ml, p, c, _w)
 
-    bundle = {
-        "type": "decision_tree_classifier_is_best",
-        "keywords": KEYWORDS,
-        "feature_names": feature_names(),
-        "n_features": N_FEATS,
+        elif method == "ridge":
+            X, y, _ = expand_reg(tr_d, augment=True)
+            sc = StandardScaler().fit(X)
+            reg = Ridge(alpha=2.0, random_state=0)
+            reg.fit(sc.transform(X), y)
+
+            def fn(p, c, _reg=reg, _sc=sc, _w=w_h):
+                if _w >= 0.999:
+                    return heur_best(p, c)
+                ml = predict_ridge(_reg, _sc, p, c)
+                if _w <= 0.001:
+                    return c[int(np.argmax(ml))]
+                return blend_pick(ml, p, c, _w)
+        else:
+            raise ValueError(method)
+
+        a = ranking_acc(fn, te_d)
+        accs.append(a)
+        ns.append(len(te_d))
+    return float(np.average(accs, weights=ns))
+
+
+def pack_linear(kind, weights, bias, best_w, best_cv, grid, dilemmas, n_rows):
+    return {
+        "type": kind,
+        "n_features": int(len(weights)),
+        "weights": [float(x) for x in weights],
+        "bias": float(bias),
+        "blend_w_heuristic": float(best_w),
+        "cv_top1_holdout": float(best_cv),
+        "cv_grid": {k: float(v) for k, v in grid.items()},
+        "chance": float(np.mean([1 / len(d["choices"]) for d in dilemmas])),
         "n_dilemmas": len(dilemmas),
-        "n_rows": int(len(y)),
-        "cv_folds": n_splits,
-        "cv_top1_holdout": cv,
-        "chance": chance,
-        "in_sample_top1_debug": in_sample,
+        "n_train_rows": int(n_rows),
+        "keywords": KEYWORDS,
         "leak_checks": {
             "group_kfold_event": True,
+            "aug_only_inside_train_fold_for_cv": True,
+            "eval_against_career_best_i": True,
             "metrics_holdout_only": True,
-            "relative_features_ok_at_inference": True,
         },
-        "tree": tree_to_dict(clf_all),
     }
+
+
+def absorb_scaler(coef, intercept, scaler):
+    w = coef / scaler.scale_
+    b = float(intercept - np.dot(coef, scaler.mean_ / scaler.scale_))
+    return w, b
+
+
+def main():
+    dilemmas = [d for d in load_dilemmas() if str(d["group"]).startswith("ev:")]
+    print(f"game={len(dilemmas)}")
+    heur_cv = fold_cv(dilemmas, "heur", 1.0)
+    print(f"heur CV={100*heur_cv:.1f}%")
+
+    grid = {"heur": heur_cv}
+    best = ("heur", 1.0, heur_cv)
+
+    for method in ("lr", "ridge"):
+        for w_h in [0.0, 0.25, 0.4, 0.55, 0.7, 0.85]:
+            cv = fold_cv(dilemmas, method, w_h)
+            key = f"{method}_w{w_h}"
+            grid[key] = cv
+            print(f"{key} CV={100*cv:.1f}%")
+            if cv > best[2]:
+                best = (method, w_h, cv)
+
+    method, best_w, best_cv = best
+    print(f"BEST {method} w_h={best_w} CV={100*best_cv:.1f}% (no leak)")
+
+    if method == "heur":
+        # Export un modele "blend" degenerate = heuristique pure (weights nuls, w_h=1)
+        X, y, _ = expand_cls(dilemmas, soft=True, augment=True)
+        bundle = pack_linear(
+            "logistic_pointwise_blend",
+            [0.0] * int(matrix(dilemmas[0]["prompt"], dilemmas[0]["choices"]).shape[1]),
+            0.0,
+            1.0,
+            best_cv,
+            grid,
+            dilemmas,
+            len(y),
+        )
+        model_obj = None
+        scaler = None
+    elif method == "lr":
+        X, y, _ = expand_cls(dilemmas, soft=True, augment=True)
+        scaler = StandardScaler().fit(X)
+        clf = LogisticRegression(C=0.5, max_iter=4000, class_weight="balanced", random_state=0)
+        clf.fit(scaler.transform(X), y)
+        idx = list(clf.classes_).index(1) if 1 in clf.classes_ else 0
+        coef = clf.coef_[idx] if clf.coef_.shape[0] > 1 else clf.coef_[0]
+        intercept = float(
+            clf.intercept_[idx] if len(np.atleast_1d(clf.intercept_)) > 1 else clf.intercept_[0]
+        )
+        w, b = absorb_scaler(coef, intercept, scaler)
+        bundle = pack_linear(
+            "logistic_pointwise_blend", w, b, best_w, best_cv, grid, dilemmas, len(y)
+        )
+        model_obj = clf
+    else:
+        X, y, _ = expand_reg(dilemmas, augment=True)
+        scaler = StandardScaler().fit(X)
+        reg = Ridge(alpha=2.0, random_state=0)
+        reg.fit(scaler.transform(X), y)
+        w, b = absorb_scaler(reg.coef_, float(reg.intercept_), scaler)
+        bundle = pack_linear(
+            "logistic_pointwise_blend", w, b, best_w, best_cv, grid, dilemmas, len(y)
+        )
+        bundle["underlying"] = "ridge_career_scores"
+        model_obj = reg
+
+    OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
+    OUT_JOBLIB.parent.mkdir(parents=True, exist_ok=True)
     OUT_JSON.write_text(json.dumps(bundle, ensure_ascii=False), encoding="utf-8")
     OUT_REPORT.write_text(json.dumps(bundle, ensure_ascii=False, indent=2), encoding="utf-8")
-    joblib.dump({"model": clf_all, "bundle": bundle}, OUT_JOBLIB)
-    print(f"Saved {OUT_JSON}")
+    joblib.dump({"model": model_obj, "scaler": scaler, "meta": bundle}, OUT_JOBLIB)
+    print(f"Saved {OUT_JSON} ({OUT_JSON.stat().st_size/1024:.1f} KB)")
 
 
 if __name__ == "__main__":

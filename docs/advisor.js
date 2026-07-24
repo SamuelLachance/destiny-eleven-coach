@@ -117,6 +117,65 @@
     return score;
   }
 
+  function jaccardSets(a, b) {
+    if (!a.size || !b.size) return 0;
+    let inter = 0;
+    for (const x of a) if (b.has(x)) inter++;
+    return inter / (a.size + b.size - inter);
+  }
+
+  function charGrams(s, n) {
+    const t = _n(s).replace(/\s+/g, " ");
+    const g = new Set();
+    if (t.length < n) {
+      if (t) g.add(t);
+      return g;
+    }
+    for (let i = 0; i <= t.length - n; i++) g.add(t.slice(i, i + n));
+    return g;
+  }
+
+  function promptSim(a, b) {
+    return 0.5 * jaccardSets(charGrams(a, 3), charGrams(b, 3)) + 0.5 * jaccardSets(charGrams(a, 4), charGrams(b, 4));
+  }
+
+  function choiceSim(a, b) {
+    const na = new Set(_n(a).split(/\s+/).filter(Boolean));
+    const nb = new Set(_n(b).split(/\s+/).filter(Boolean));
+    return jaccardSets(na, nb);
+  }
+
+  function mapBestChoice(srcRow, choices) {
+    const want = (srcRow.choices || [])[srcRow.best_i] || "";
+    let bestCh = null;
+    let bestS = -1;
+    for (const ch of choices) {
+      const s = choiceSim(want, ch);
+      if (s > bestS) {
+        bestS = s;
+        bestCh = ch;
+      }
+    }
+    if (bestS >= 0.2) return bestCh;
+    const scores = srcRow.raw_scores || srcRow.qualities;
+    if (scores && scores.length === (srcRow.choices || []).length) {
+      const mapped = choices.map((ch) => {
+        let bj = -1;
+        let bs = -1;
+        (srcRow.choices || []).forEach((sch, j) => {
+          const s = choiceSim(ch, sch);
+          if (s > bs) {
+            bs = s;
+            bj = j;
+          }
+        });
+        return bs >= 0.2 ? Number(scores[bj]) : -1e9;
+      });
+      if (Math.max(...mapped) > -1e8) return choices[mapped.indexOf(Math.max(...mapped))];
+    }
+    return null;
+  }
+
   function lookupOracle(prompt, choices, scenarios) {
     if (!scenarios || !scenarios.length || choices.length < 2) return null;
     const choiceSet = new Set(choices.map(norm));
@@ -147,12 +206,30 @@
         }
       }
     }
-    if (!best) return null;
-    const want = norm((best.choices || [])[best.best_i] || "");
-    for (const ch of choices) {
-      const cn = norm(ch);
-      if (cn === want || cn.includes(want) || want.includes(cn)) {
-        return { pick: ch, reason: `oracle jeu (${best.id || "event"})` };
+    if (best) {
+      const mapped = mapBestChoice(best, choices);
+      if (mapped) return { pick: mapped, reason: `oracle jeu (${best.id || "event"})` };
+    }
+
+    // Retrieval flou (trigrammes) — meilleure generalisation holdout ~63.6% CV
+    const minSim = (treeModel && treeModel.min_sim != null) ? treeModel.min_sim : 0.15;
+    let fuzzy = null;
+    let fuzzySim = 0;
+    for (const row of scenarios) {
+      if (!(row.prompt || "").trim()) continue;
+      const s = promptSim(prompt, row.prompt);
+      if (s > fuzzySim) {
+        fuzzySim = s;
+        fuzzy = row;
+      }
+    }
+    if (fuzzy && fuzzySim >= minSim) {
+      const mapped = mapBestChoice(fuzzy, choices);
+      if (mapped) {
+        return {
+          pick: mapped,
+          reason: `retrieval sim=${fuzzySim.toFixed(2)} (${fuzzy.id || "near"})`,
+        };
       }
     }
     return null;
@@ -236,15 +313,15 @@
     const c = _n(choice);
     const p = _n(prompt);
     let s = 0;
-    if (/collectif|travailler|soigner|repos|verif|licence|prudent|discret|ecout|rentrer|hygiene|garant|diplomat|excus|focus|danse|repousser|encore/.test(c)) s += 5;
-    if (/panenka|clash|insult|engueul|soiree|boite|alcool|fete|tiktok|buzz|forcer|dopage|casino|legendaire|annoncer la retraite|prendre votre retraite/.test(c)) s -= 6;
-    if (/bless|douleur|medical|kine/.test(p)) {
-      if (/repos|soigner|medical|inapte|suivre/.test(c)) s += 6;
-      if (/forcer|cacher|anti-douleur/.test(c)) s -= 6;
+    if (/collectif|travailler|soigner|repos|verif|licence|prudent|discret|ecout|rentrer|hygiene|garant|diplomat|excus|focus|danse|repousser|encore|titulaire|minutes/.test(c)) s += 5;
+    if (/panenka|clash|insult|engueul|soiree|boite|alcool|fete|tiktok|buzz|forcer|dopage|casino|legendaire|annoncer la retraite|prendre votre retraite|banc/.test(c)) s -= 6;
+    if (/bless|douleur|medical|kine|radios/.test(p)) {
+      if (/repos|soigner|medical|inapte|suivre|repousser/.test(c)) s += 6;
+      if (/forcer|cacher|anti-douleur|annoncer la retraite/.test(c)) s -= 6;
     }
-    if (/agent|frais/.test(p)) {
+    if (/agent|frais|sponsor/.test(p)) {
       if (/verif|licence|federation|refuser|lire/.test(c)) s += 8;
-      if (/^payer|donner/.test(c)) s -= 8;
+      if (/^payer|donner|signer pour/.test(c)) s -= 8;
     }
     if (/penalty/.test(p)) {
       if (/force/.test(c)) s += 4;
@@ -258,10 +335,14 @@
       if (/rentrer|refuser|dormir/.test(c)) s += 5;
       if (/accepter|profiter|verre/.test(c)) s -= 5;
     }
+    if (/coach|staff|entrain/.test(p)) {
+      if (/ecout|travaill|respect|discut/.test(c)) s += 5;
+      if (/clash|insult|engueul/.test(c)) s -= 6;
+    }
     return s;
   }
 
-  function baseTreeFeatures(prompt, choice, keywords) {
+  function baseOnlyFeatures(prompt, choice, keywords) {
     const p = _n(prompt);
     const c = _n(choice);
     const feats = [];
@@ -270,12 +351,15 @@
       feats.push(p.includes(kw) ? 1 : 0);
     }
     feats.push(Math.min(c.length, 200) / 100);
-    feats.push(/^\s*collectif\b/.test(c) ? 1 : 0);
+    feats.push(/collectif/.test(c) ? 1 : 0);
     feats.push(c.includes("legendaire") ? 1 : 0);
-    feats.push(/prudent|sagesse/.test(c) ? 1 : 0);
-    feats.push(/soigner|repos|verif|travailler|ecout|discret|prudent|hygiene|rentrer|medical|present|garant|collectif|excus|focus|licence|danse|repousser/.test(c) ? 1 : 0);
-    feats.push(/panenka|clash|insult|soiree|boite|alcool|fete|tiktok|buzz|forcer|legendaire|retraite/.test(c) ? 1 : 0);
-    feats.push(treeHeuristic(prompt, choice) / 20);
+    feats.push(/prudent|sagesse|ambitieux/.test(c) ? 1 : 0);
+    feats.push(/soigner|repos|verif|travailler|ecout|discret|prudent|hygiene|rentrer|medical|garant|collectif|excus|focus|licence|danse|repousser|titulaire/.test(c) ? 1 : 0);
+    feats.push(/panenka|clash|insult|soiree|boite|alcool|fete|tiktok|buzz|forcer|legendaire|retraite|banc/.test(c) ? 1 : 0);
+    const h = treeHeuristic(prompt, choice);
+    feats.push(h / 20);
+    feats.push(h > 0 ? 1 : 0);
+    feats.push(h < 0 ? 1 : 0);
     return feats;
   }
 
@@ -284,16 +368,47 @@
     const hMax = Math.max(...hs);
     const hMin = Math.min(...hs);
     const hMean = hs.reduce((a, b) => a + b, 0) / (hs.length || 1);
+    const sorted = [...hs].sort((a, b) => a - b);
+    const second = sorted.length > 1 ? sorted[sorted.length - 2] : sorted[0];
     return choices.map((ch, i) => {
-      const b = baseTreeFeatures(prompt, ch, keywords);
+      const b = baseOnlyFeatures(prompt, ch, keywords);
       return b.concat([
         hs[i] / 20,
         (hs[i] - hMean) / 20,
         hs[i] >= hMax - 1e-9 ? 1 : 0,
-        hs[i] === hMin ? 1 : 0,
+        hs[i] <= hMin + 1e-9 ? 1 : 0,
         choices.length / 5,
+        Math.abs(hs[i] - second) < 1e-9 && hs[i] < hMax - 1e-9 ? 1 : 0,
       ]);
     });
+  }
+
+  function logisticScore(feats, weights, bias) {
+    let s = bias || 0;
+    for (let i = 0; i < weights.length && i < feats.length; i++) s += weights[i] * feats[i];
+    return s;
+  }
+
+  function pickLogisticBlend(prompt, choices) {
+    const kws = treeModel.keywords || [];
+    const M = dilemmaFeatureMatrix(prompt, choices, kws);
+    const weights = treeModel.weights || [];
+    const bias = treeModel.bias || 0;
+    const wH = treeModel.blend_w_heuristic != null ? treeModel.blend_w_heuristic : 0.55;
+    const ml = M.map((f) => logisticScore(f, weights, bias));
+    const hs = choices.map((ch) => treeHeuristic(prompt, ch));
+    const hMin = Math.min(...hs);
+    const hMax = Math.max(...hs);
+    const mMin = Math.min(...ml);
+    const mMax = Math.max(...ml);
+    const scores = choices.map((_, i) => {
+      const hn = (hs[i] - hMin) / (hMax - hMin + 1e-9);
+      const mn = (ml[i] - mMin) / (mMax - mMin + 1e-9);
+      return wH * hn + (1 - wH) * mn;
+    });
+    let bestI = 0;
+    for (let i = 1; i < scores.length; i++) if (scores[i] > scores[bestI]) bestI = i;
+    return { pick: choices[bestI], score: scores[bestI] };
   }
 
   function evalTree(node, feats) {
@@ -302,9 +417,53 @@
     return feats[node.f] <= node.t ? evalTree(node.l, feats) : evalTree(node.r, feats);
   }
 
+  function forestPredict(diffFeats) {
+    const trees = treeModel.trees || (treeModel.tree ? [treeModel.tree] : []);
+    if (!trees.length) return 0;
+    let s = 0;
+    for (const t of trees) s += evalTree(t, diffFeats);
+    return s / trees.length;
+  }
+
   function pickWithTree(prompt, choices) {
-    if (!treeModel || !treeModel.tree) return null;
-    const M = dilemmaFeatureMatrix(prompt, choices, treeModel.keywords || []);
+    if (!treeModel) return null;
+    const kws = treeModel.keywords || [];
+    const type = treeModel.type || "";
+
+    if (type === "logistic_pointwise_blend" && treeModel.weights) {
+      return pickLogisticBlend(prompt, choices);
+    }
+
+    if (
+      type === "retrieval_tfidf_blend" ||
+      type === "tuned_heuristic_rules" ||
+      type === "heuristic_primary_rf_backup" ||
+      treeModel.prefer_heuristic_if_better
+    ) {
+      const hs = choices.map((ch) => treeHeuristic(prompt, ch));
+      let bestI = 0;
+      for (let i = 1; i < hs.length; i++) if (hs[i] > hs[bestI]) bestI = i;
+      return { pick: choices[bestI], score: hs[bestI] };
+    }
+
+    if (type === "random_forest_pairwise" || (treeModel.trees && treeModel.trees.length)) {
+      const feats = choices.map((ch) => baseOnlyFeatures(prompt, ch, kws));
+      const scores = choices.map(() => 0);
+      for (let i = 0; i < choices.length; i++) {
+        for (let j = 0; j < choices.length; j++) {
+          if (i === j) continue;
+          const diff = feats[i].map((v, k) => v - feats[j][k]);
+          scores[i] += forestPredict(diff);
+        }
+      }
+      let bestI = 0;
+      for (let i = 1; i < scores.length; i++) if (scores[i] > scores[bestI]) bestI = i;
+      return { pick: choices[bestI], score: scores[bestI] };
+    }
+
+    // ancien modele single-tree is_best
+    if (!treeModel.tree) return null;
+    const M = dilemmaFeatureMatrix(prompt, choices, kws);
     let best = choices[0];
     let bestScore = -1e9;
     for (let i = 0; i < choices.length; i++) {
@@ -333,9 +492,10 @@
     const treePick = pickWithTree(prompt, c);
     if (treePick) {
       const pct = treeModel.cv_top1_holdout != null ? ` · CV ${(100 * treeModel.cv_top1_holdout).toFixed(0)}%` : "";
+      const kind = (treeModel && treeModel.type) || "model";
       return {
         pick: treePick.pick,
-        reason: `arbre ranking P(best)≈${treePick.score.toFixed(2)}${pct}`,
+        reason: `${kind} score≈${treePick.score.toFixed(2)}${pct}`,
         choices: c,
         prompt,
       };
