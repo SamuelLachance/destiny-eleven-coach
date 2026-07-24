@@ -1,7 +1,12 @@
 """
-Entraîne un arbre de décision (sklearn) et l'exporte en JSON pour GitHub Pages.
+Entraîne un arbre de décision SANS leakage, puis l'exporte pour GitHub Pages.
 
-Features volontairement simples = mêmes calculs possibles en JavaScript.
+Garanties anti-leak:
+1. Split / CV par `event_id` (GroupKFold) — aucun événement en train ET test
+2. Pas d'augs bruitées dans le set d'eval (labels ±1)
+3. Métriques reportées UNIQUEMENT sur folds holdout (jamais in-sample)
+4. Le modèle exporté est re-fit sur TOUT seulement APRÈS l'évaluation
+5. Assert train_groups ∩ test_groups == ∅
 """
 
 from __future__ import annotations
@@ -9,15 +14,19 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from collections import defaultdict
 from pathlib import Path
 
+import joblib
 import numpy as np
-from sklearn.model_selection import GroupShuffleSplit
+from sklearn.model_selection import GroupKFold
 from sklearn.tree import DecisionTreeRegressor
 
 SAMPLES = Path("data/choice_samples.jsonl")
+SCENARIOS = Path("data/game_scenarios.jsonl")
 OUT_JSON = Path("docs/tree_model.json")
 OUT_JOBLIB = Path("models/choice_tree.joblib")
+OUT_REPORT = Path("docs/tree_train_report.json")
 
 KEYWORDS = [
     "collectif", "hygiene", "repos", "soigner", "medecin", "travailler",
@@ -38,6 +47,7 @@ def _norm(s: str) -> str:
 
 
 def features(prompt: str, choice: str) -> list[float]:
+    """Features texte only — jamais le label / is_best / raw_scores."""
     p, c = _norm(prompt), _norm(choice)
     feats: list[float] = []
     for kw in KEYWORDS:
@@ -104,83 +114,203 @@ def tree_to_dict(tree) -> dict:
     return rec(0)
 
 
-def main() -> None:
-    X, y, groups = [], [], []
+def load_rows() -> list[dict]:
+    """Charge samples propres: pas d'augs bruitées; dédup (event_id, choice)."""
+    raw = []
     with SAMPLES.open(encoding="utf-8") as f:
         for line in f:
             row = json.loads(line)
-            prompt = row.get("prompt") or ""
-            choice = row.get("choice") or ""
-            label = row.get("label")
-            if not choice or label is None:
+            src = row.get("source") or ""
+            # Exclure augs (label bruité ±1) — source de leakage / overfitting
+            if src == "game_aug":
                 continue
-            X.append(features(prompt, choice))
-            y.append(float(label))
-            groups.append(str(row.get("event_id") or prompt[:80]))
+            if not row.get("choice") or row.get("label") is None:
+                continue
+            raw.append(row)
 
-    X = np.asarray(X, dtype=np.float64)
-    y = np.asarray(y, dtype=np.float64)
-    print(f"samples={len(y)} dim={X.shape[1]}")
+    # Dédup: un exemplaire par (group, choice normalisée)
+    # Pour game_event multi-clubs: on garde "ton club" en priorité, sinon 1er vu
+    by_key: dict[tuple[str, str], dict] = {}
+    for row in raw:
+        eid = row.get("event_id")
+        if eid:
+            group = f"ev:{eid}"
+        else:
+            group = f"other:{_norm(row.get('prompt') or '')[:100]}"
+        ck = _norm(row.get("choice") or "")
+        key = (group, ck)
+        prompt = row.get("prompt") or ""
+        prefer = "ton club" in prompt.lower() or "votre club" in prompt.lower()
+        if key not in by_key:
+            by_key[key] = {**row, "_group": group}
+        elif prefer:
+            by_key[key] = {**row, "_group": group}
 
-    gss = GroupShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
-    tr, te = next(gss.split(X, y, groups))
-    model = DecisionTreeRegressor(
-        max_depth=10,
-        min_samples_leaf=8,
+    rows = list(by_key.values())
+    return rows
+
+
+def assert_no_leak(train_groups: np.ndarray, test_groups: np.ndarray, fold: int) -> None:
+    inter = set(train_groups) & set(test_groups)
+    if inter:
+        raise RuntimeError(f"LEAK fold {fold}: {len(inter)} groups in train∩test e.g. {list(inter)[:5]}")
+
+
+def ranking_acc(model, dilemmas: list[dict]) -> float:
+    if not dilemmas:
+        return 0.0
+    ok = 0
+    for d in dilemmas:
+        choices = d["choices"]
+        scores = [float(model.predict([features(d["prompt"], ch)])[0]) for ch in choices]
+        pick = choices[int(np.argmax(scores))]
+        if pick == choices[int(d["best_i"])]:
+            ok += 1
+    return ok / len(dilemmas)
+
+
+def load_dilemmas_by_group() -> dict[str, dict]:
+    """Scenarios jeu indexés par group id (un dilemme par event)."""
+    out = {}
+    if not SCENARIOS.exists():
+        return out
+    for line in SCENARIOS.open(encoding="utf-8"):
+        s = json.loads(line)
+        eid = s.get("id")
+        if not eid or len(s.get("choices") or []) < 2:
+            continue
+        out[f"ev:{eid}"] = {
+            "prompt": s["prompt"],
+            "choices": s["choices"],
+            "best_i": int(s["best_i"]),
+            "id": eid,
+        }
+    return out
+
+
+def main() -> None:
+    rows = load_rows()
+    if len(rows) < 50:
+        raise SystemExit(f"Trop peu de samples propres: {len(rows)}")
+
+    X = np.asarray([features(r["prompt"], r["choice"]) for r in rows], dtype=np.float64)
+    y = np.asarray([float(r["label"]) for r in rows], dtype=np.float64)
+    groups = np.asarray([r["_group"] for r in rows])
+
+    # Vérif: features ne contiennent pas le label
+    assert X.shape[1] == len(feature_names())
+    # Corrélation label↔feature max (info, pas un leak train/test)
+    corrs = []
+    for j in range(X.shape[1]):
+        if X[:, j].std() < 1e-9:
+            continue
+        corrs.append(abs(float(np.corrcoef(X[:, j], y)[0, 1])))
+    print(f"samples_clean={len(y)} groups={len(set(groups))} dim={X.shape[1]}")
+    print(f"max |corr(feature,y)|={max(corrs):.3f} (info; <1 attendu)")
+
+    dilemmas = load_dilemmas_by_group()
+    unique_groups = np.array(sorted(set(groups)))
+    n_splits = min(5, len(unique_groups))
+    if n_splits < 2:
+        raise SystemExit("Pas assez de groupes pour une CV sans leak")
+
+    gkf = GroupKFold(n_splits=n_splits)
+    fold_mae = []
+    fold_rank = []
+    fold_sizes = []
+
+    # Map group -> row indices for building holdout dilemmas from samples too
+    for fold, (tr, te) in enumerate(gkf.split(X, y, groups), start=1):
+        assert_no_leak(groups[tr], groups[te], fold)
+
+        model = DecisionTreeRegressor(
+            max_depth=8,
+            min_samples_leaf=12,
+            min_samples_split=24,
+            random_state=42 + fold,
+        )
+        model.fit(X[tr], y[tr])
+        pred = model.predict(X[te])
+        mae = float(np.mean(np.abs(pred - y[te])))
+        fold_mae.append(mae)
+
+        # Ranking UNIQUEMENT sur events holdout (pas vus en train)
+        te_groups = set(groups[te])
+        holdout_dils = [dilemmas[g] for g in te_groups if g in dilemmas]
+        # Si pas dans scenarios.jsonl, reconstruire depuis samples holdout
+        if not holdout_dils:
+            by_g: dict[str, list] = defaultdict(list)
+            for i in te:
+                by_g[groups[i]].append(rows[i])
+            for g, rs in by_g.items():
+                # besoin d'un dilemme multi-choix
+                choices_map = {}
+                for r in rs:
+                    choices_map[r["choice"]] = r
+                # best = max label
+                if len(choices_map) < 2:
+                    continue
+                chs = list(choices_map.keys())
+                best_i = int(np.argmax([choices_map[c]["label"] for c in chs]))
+                holdout_dils.append(
+                    {"prompt": rs[0]["prompt"], "choices": chs, "best_i": best_i, "id": g}
+                )
+
+        acc = ranking_acc(model, holdout_dils)
+        fold_rank.append(acc)
+        fold_sizes.append(len(holdout_dils))
+        print(
+            f"fold {fold}: train={len(tr)} test={len(te)} "
+            f"holdout_events={len(holdout_dils)} MAE={mae:.2f} top1={100*acc:.1f}%"
+        )
+
+    cv_mae = float(np.mean(fold_mae))
+    cv_rank = float(np.average(fold_rank, weights=fold_sizes)) if sum(fold_sizes) else 0.0
+    print("---")
+    print(f"CV MAE (holdout only): {cv_mae:.2f}")
+    print(f"CV top-1 ranking (holdout events only): {100*cv_rank:.1f}%")
+    print(f"Chance approx: ~{100*np.mean([1/len(d['choices']) for d in dilemmas.values()] or [0.5]):.1f}%")
+
+    # Sanity: in-sample ranking MUST NOT être la métrique officielle
+    model_all = DecisionTreeRegressor(
+        max_depth=8,
+        min_samples_leaf=12,
+        min_samples_split=24,
         random_state=42,
     )
-    model.fit(X[tr], y[tr])
-    pred = model.predict(X[te])
-    mae = float(np.mean(np.abs(pred - y[te])))
+    model_all.fit(X, y)
+    in_sample = ranking_acc(model_all, list(dilemmas.values()))
+    print(f"(debug) in-sample top-1 after full fit: {100*in_sample:.1f}% — NE PAS utiliser comme perf réelle")
 
-    # ranking acc holdout by group
-    by = {}
-    meta_te = []
-    # rebuild meta from file for te indices is hard; eval on full dilemmas after fit-all
-
-    model_full = DecisionTreeRegressor(max_depth=10, min_samples_leaf=8, random_state=42)
-    model_full.fit(X, y)
-
-    # ranking on unique scenarios file if present
-    scen_path = Path("data/game_scenarios.jsonl")
-    ok = tot = 0
-    if scen_path.exists():
-        for line in scen_path.open(encoding="utf-8"):
-            s = json.loads(line)
-            choices = s.get("choices") or []
-            if len(choices) < 2:
-                continue
-            scores = [model_full.predict([features(s["prompt"], ch)])[0] for ch in choices]
-            pick = choices[int(np.argmax(scores))]
-            best = choices[int(s["best_i"])]
-            tot += 1
-            ok += pick == best
-
-    print(f"MAE holdout: {mae:.2f}")
-    print(f"nodes: {model_full.tree_.node_count}")
-    if tot:
-        print(f"game top-1: {ok}/{tot} = {100*ok/tot:.1f}%")
+    if cv_rank < 0.45:
+        print("WARNING: holdout top-1 proche du hasard — features/labels peu généralisables")
 
     bundle = {
         "type": "decision_tree_regressor",
         "keywords": KEYWORDS,
         "feature_names": feature_names(),
         "n_features": int(X.shape[1]),
-        "mae_holdout": mae,
         "n_samples": int(len(y)),
-        "game_top1": (ok / tot) if tot else None,
-        "tree": tree_to_dict(model_full),
+        "n_groups": int(len(set(groups))),
+        "cv_folds": n_splits,
+        "cv_mae_holdout": cv_mae,
+        "cv_top1_holdout": cv_rank,
+        "in_sample_top1_debug": in_sample,
+        "leak_checks": {
+            "group_kfold": True,
+            "aug_excluded": True,
+            "dedup_event_choice": True,
+            "metrics_holdout_only": True,
+        },
+        "tree": tree_to_dict(model_all),
     }
     OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
     OUT_JSON.write_text(json.dumps(bundle, ensure_ascii=False), encoding="utf-8")
+    OUT_REPORT.write_text(json.dumps(bundle, ensure_ascii=False, indent=2), encoding="utf-8")
     OUT_JOBLIB.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        import joblib
-
-        joblib.dump({"model": model_full, "keywords": KEYWORDS}, OUT_JOBLIB)
-    except Exception:
-        pass
+    joblib.dump({"model": model_all, "keywords": KEYWORDS, "report": bundle}, OUT_JOBLIB)
     print(f"Saved {OUT_JSON}")
+    print(f"Report {OUT_REPORT}")
 
 
 if __name__ == "__main__":

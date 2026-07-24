@@ -183,7 +183,16 @@ Annoncer la retraite en fin de saison"></textarea>
       fetch("./tree_model.json").then((r) => r.json()).catch(() => null),
     ]).then(([scen, tree]) => {
       scenarios = scen || [];
-      if (tree) DestinyCoach.setTreeModel(tree);
+      if (tree) {
+        DestinyCoach.setTreeModel(tree);
+        const pill = document.querySelector(".pill");
+        if (pill && tree.cv_top1_holdout != null) {
+          pill.innerHTML =
+            "<span aria-hidden=\"true\">●</span> Arbre CV holdout " +
+            (100 * tree.cv_top1_holdout).toFixed(0) +
+            "% top-1 · sans leak event_id";
+        }
+      }
     });
 
     const result = document.getElementById("result");

@@ -30,11 +30,18 @@ Ouvre http://127.0.0.1:5055 — mode navigateur Playwright avec profil persistan
 ## Comment ça décide
 
 1. **Oracle** — si le dilemme est un événement exact du jeu → meilleur choix labellisé via `Engine.netImpact`
-2. **Arbre de décision** — modèle sklearn exporté en JSON (`docs/tree_model.json`), tourne en JS sur GitHub Pages
-3. **Heuristique** — filet de sécurité seulement si l’arbre n’est pas chargé
+2. **Arbre de décision** — sklearn `DecisionTreeRegressor`, export JSON, tourne en JS
+3. **Heuristique** — filet si l’arbre n’est pas chargé
 
-En local, `train_model.py` utilise aussi un ensemble d’arbres (`HistGradientBoosting`).
+### Anti-leak (arbre)
+
+- CV **GroupKFold par `event_id`** (aucun événement en train et test)
+- augs bruitées exclues
+- dédup `(event, choix)`
+- métrique officielle = **top-1 holdout CV** (pas le score in-sample)
 
 ```powershell
-.\.venv\Scripts\python export_decision_tree.py   # régénère docs/tree_model.json
+.\.venv\Scripts\python export_decision_tree.py
 ```
+
+Voir `docs/tree_train_report.json` pour le dernier rapport.
