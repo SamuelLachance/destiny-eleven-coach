@@ -219,6 +219,56 @@
     return null;
   }
 
+  let treeModel = null;
+
+  function setTreeModel(model) {
+    treeModel = model;
+  }
+
+  function treeFeatures(prompt, choice, keywords) {
+    const norm = (s) =>
+      (s || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+    const p = norm(prompt);
+    const c = norm(choice);
+    const feats = [];
+    for (const kw of keywords) {
+      feats.push(c.includes(kw) ? 1 : 0);
+      feats.push(p.includes(kw) ? 1 : 0);
+    }
+    feats.push(Math.min(c.length, 200) / 100);
+    feats.push(/^\s*collectif\b/.test(c) ? 1 : 0);
+    feats.push(c.includes("legendaire") ? 1 : 0);
+    feats.push(/prudent|sagesse|^pro\b/.test(c) ? 1 : 0);
+    const safe = /soigner|repos|verif|travailler|ecout|discret|prudent|hygiene|rentrer|medical|present|garant|collectif|excus|focus|licence|federation|danse|repousser/.test(c) ? 1 : 0;
+    const risk = /panenka|clash|insult|engueul|soiree|boite|alcool|fete|tiktok|buzz|forcer|cacher|payer|dopage|casino|legendaire|retraite/.test(c) ? 1 : 0;
+    feats.push(safe, risk);
+    feats.push(p.includes("agent") && (c.includes("verif") || c.includes("licence")) ? 1 : 0);
+    feats.push(p.includes("bless") && (c.includes("repos") || c.includes("soigner") || c.includes("medical")) ? 1 : 0);
+    feats.push((p.includes("banc") || p.includes("temps de jeu")) && c.includes("rester") ? 1 : 0);
+    feats.push(p.includes("penalty") && c.includes("force") ? 1 : 0);
+    feats.push(p.includes("penalty") && c.includes("panenka") ? 1 : 0);
+    feats.push((p.includes("soir") || p.includes("boite")) && (c.includes("rentrer") || c.includes("refuser")) ? 1 : 0);
+    feats.push(p.includes("retrait") && (c.includes("danse") || c.includes("repousser") || c.includes("encore")) ? 1 : 0);
+    feats.push(p.includes("retrait") && c.includes("annoncer") ? 1 : 0);
+    feats.push((p.includes("coach") || p.includes("staff")) && (c.includes("ecout") || c.includes("travaill")) ? 1 : 0);
+    return feats;
+  }
+
+  function evalTree(node, feats) {
+    if (!node) return 0;
+    if (typeof node.v === "number") return node.v;
+    return feats[node.f] <= node.t ? evalTree(node.l, feats) : evalTree(node.r, feats);
+  }
+
+  function scoreTree(prompt, choice) {
+    if (!treeModel || !treeModel.tree) return null;
+    const feats = treeFeatures(prompt, choice, treeModel.keywords || []);
+    return evalTree(treeModel.tree, feats);
+  }
+
   function advise(prompt, choices, scenarios) {
     const c = cleanChoices(choices);
     if (!c.length) return { pick: "", reason: "Aucun choix détecté", choices: [] };
@@ -232,6 +282,25 @@
     const setup = pickSetup(prompt, c);
     if (setup) return { ...setup, choices: c, prompt };
 
+    // Arbre de décision entraîné (export sklearn)
+    if (treeModel && treeModel.tree) {
+      let best = c[0];
+      let bestScore = -1e9;
+      for (const ch of c) {
+        const s = scoreTree(prompt, ch);
+        if (s != null && s > bestScore) {
+          bestScore = s;
+          best = ch;
+        }
+      }
+      return {
+        pick: best,
+        reason: `arbre de décision (${treeModel.n_samples || "?"} samples, h≈${bestScore.toFixed(1)})`,
+        choices: c,
+        prompt,
+      };
+    }
+
     let best = c[0];
     let bestScore = -1e9;
     for (const ch of c) {
@@ -241,7 +310,7 @@
         best = ch;
       }
     }
-    let why = "heuristique";
+    let why = "heuristique (fallback)";
     if (bestScore >= 5) why += " · signal pro/safe";
     else if (bestScore <= 0) why += " · moins risqué";
     return { pick: best, reason: `${why} (h=${bestScore.toFixed(1)})`, choices: c, prompt };
@@ -268,5 +337,5 @@
     return { prompt, choices };
   }
 
-  global.DestinyCoach = { advise, parseBlob, cleanChoices, scoreChoice };
+  global.DestinyCoach = { advise, parseBlob, cleanChoices, scoreChoice, setTreeModel, scoreTree };
 })(window);

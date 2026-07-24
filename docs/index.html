@@ -142,7 +142,7 @@
 </head>
 <body>
   <main>
-    <p class="pill"><span aria-hidden="true">●</span> Live sur GitHub Pages · 176 événements du jeu</p>
+    <p class="pill"><span aria-hidden="true">●</span> Live · arbre de décision entraîné + 176 événements oracle</p>
     <h1 class="brand">Destiny Eleven Coach</h1>
     <p class="sub">Colle un dilemme + tes choix (un par ligne). Le coach recommande l’option qui maximise ta carrière — discipline, minutes, pas de retraite précoce.</p>
 
@@ -178,10 +178,13 @@ Annoncer la retraite en fin de saison"></textarea>
   <script src="./advisor.js"></script>
   <script>
     let scenarios = [];
-    fetch("./scenarios.json")
-      .then((r) => r.json())
-      .then((data) => { scenarios = data; })
-      .catch(() => { scenarios = []; });
+    Promise.all([
+      fetch("./scenarios.json").then((r) => r.json()).catch(() => []),
+      fetch("./tree_model.json").then((r) => r.json()).catch(() => null),
+    ]).then(([scen, tree]) => {
+      scenarios = scen || [];
+      if (tree) DestinyCoach.setTreeModel(tree);
+    });
 
     const result = document.getElementById("result");
     const pickEl = document.getElementById("pick");

@@ -27,6 +27,14 @@ Ouvre http://127.0.0.1:5055 — mode navigateur Playwright avec profil persistan
 .\.venv\Scripts\python train_model.py
 ```
 
-## Licence
+## Comment ça décide
 
-Usage perso / éducatif. Destiny Eleven appartient à ses auteurs.
+1. **Oracle** — si le dilemme est un événement exact du jeu → meilleur choix labellisé via `Engine.netImpact`
+2. **Arbre de décision** — modèle sklearn exporté en JSON (`docs/tree_model.json`), tourne en JS sur GitHub Pages
+3. **Heuristique** — filet de sécurité seulement si l’arbre n’est pas chargé
+
+En local, `train_model.py` utilise aussi un ensemble d’arbres (`HistGradientBoosting`).
+
+```powershell
+.\.venv\Scripts\python export_decision_tree.py   # régénère docs/tree_model.json
+```
