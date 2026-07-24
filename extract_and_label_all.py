@@ -69,55 +69,14 @@ def _fill_templates(text: str, club: str = "ton club") -> str:
 
 
 def expected_fx_score(option: dict) -> float:
-    """Proxy score CARRIERE (pas netImpact court-terme).
+    """Proxy ELITE career (top runs), pas EV safe / accuracy.
 
-    Objectif jeu = maximiser computeCareerScore:
-    peakOVR + réputation + trophées (WC, Ballon d'Or, C1…) + longévité.
-    Un événement ne donne pas directement un Ballon d'Or, mais booste les
-    stats/rep qui y mènent — et retire/inj les détruisent.
+    Poids: upper-tail + jackpot + trophées + ambition.
+    Veto fort seulement sur ruine (retraite / careerEnd).
     """
-    if option.get("expectedCareer") is not None:
-        base = float(option["expectedCareer"])
-    elif option.get("expectedImpact") is not None:
-        # ancien champ: on le traite comme base puis on corrige retraite
-        base = float(option["expectedImpact"])
-    else:
-        outcomes = option.get("outcomes") or []
-        if not outcomes:
-            return 0.0
-        tw = sum(float(o.get("weight") or 1) for o in outcomes) or 1.0
-        base = 0.0
-        for o in outcomes:
-            w = float(o.get("weight") or 1) / tw
-            fx = o.get("fx") or {}
-            if o.get("career") is not None:
-                base += w * float(o["career"])
-                continue
-            s = 0.0
-            for k, v in fx.items():
-                if k == "trait":
-                    t = str(v).lower()
-                    s += TRAIT_BONUS.get(t, 0) + TRAIT_MALUS.get(t, 0)
-                    continue
-                if k == "retire":
-                    continue
-                if isinstance(v, (int, float)):
-                    s += FX_WEIGHTS.get(k, 0.25) * float(v)
-            if fx.get("retire") is True or fx.get("retire") == 1:
-                s -= 28.0  # saisons / trophées futurs perdus
-            base += w * s
+    from relabel_elite import elite_score
 
-    label = (option.get("label") or "").lower()
-    if re.search(r"annoncer la retraite|prendre votre retraite|s'arrêter en héros|tete haute|tête haute", label):
-        base -= 12.0
-    if re.search(r"dernière danse|derniere danse|repousser|encore un an|encore une saison|battre pour|reconquérir|reconquerir", label):
-        base += 6.0
-    # minutes / titulaire = chemin trophées
-    if re.search(r"titulaire|temps de jeu|minutes|garanties", label):
-        base += 3.0
-    if re.search(r"banc|élite banc|elite banc", label):
-        base -= 2.0
-    return base
+    return elite_score(option)
 
 
 def label_from_ev(ev_score: float, scores: list[float]) -> float:

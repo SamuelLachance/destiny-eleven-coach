@@ -5,36 +5,39 @@
   const UI_NOISE = /^(partager|ma fiche|défier un ami|defier un ami|défier|defier|continuer|retour|carte|soutenir le projet|voir la carrière|statistiques|palmarès|palmares|parcours|distinctions|face à face)$/i;
 
   const GOOD = [
-    [/\bcollectif\b/i, 5],
-    [/équipe|equipe|coéquipier|coequipier|vestiaire|groupe|club/i, 2],
-    [/hygiène|hygiene|diète|diete|sommeil|dormir|rentrer|récupér|recuper|repos|pause/i, 5],
-    [/soigner|kiné|kine|médecin|medecin|médical|medical|hôpital|hopital|physio|inapte|arrêt|arret/i, 6],
-    [/travailler|s'entraîner|s'entrainer|entraînement|entrainement|muscu|vidéo|video|analyser|étudier|etudier|apprendre|progresser|reconquérir|reconquerir/i, 5],
-    [/vérifier|verifier|licence|fédération|federation|avocat|contrat clair|lire le contrat|prudent|cadre|garanties/i, 6],
-    [/promettre|poignée|poignee|remercier|discret|humble|concentré|concentre|calme|respect|diplomatique/i, 3],
-    [/frapper en force|en force|prendre le ballon|assumé|assumer/i, 3],
-    [/\bautorité\b|\bautorite\b|\bprudent\b|\bsagesse\b|\bpro\b/i, 2],
-    [/accepter.*(offre|contrat|prêt|pret|essayer)|signer|demander.*(temps de jeu|titulaire|garanties)/i, 4],
-    [/titulaire|minutes|temps de jeu|jouer beaucoup/i, 3],
-    [/sélection|selection|convoqué|convoque|répondre présent|repondre present|honorer|présent|present/i, 4],
-    [/ignorer.*(provocation|presse|polémique|polemique|haters)|ne rien dire|passer mon chemin|ne pas répondre|ne pas repondre|bloquer/i, 4],
-    [/excuser|s'excuser|présenter des excuses|presenter des excuses/i, 4],
-    [/écouter|ecouter|suivre le plan|consigne|staff|suivre l'avis/i, 4],
+    [/\bambitieux\b|tout miser|requin|rivale|transfert|offre|\bd1\b|partir|signer/i, 6],
+    [/titulaire|minutes|temps de jeu|garanties|sélection|selection/i, 5],
+    [/prendre le match|votre compte|taper du poing|œil pour œil|oeil pour oeil|clutch|assumer/i, 5],
+    [/\bcollectif\b/i, 3],
+    [/équipe|equipe|coéquipier|coequipier|vestiaire|groupe|club/i, 1],
+    [/hygiène|hygiene|diète|diete|sommeil|dormir|rentrer|récupér|recuper|repos|pause/i, 4],
+    [/soigner|kiné|kine|médecin|medecin|médical|medical|hôpital|hopital|physio|inapte|arrêt|arret|protocole/i, 5],
+    [/travailler|s'entraîner|s'entrainer|entraînement|entrainement|muscu|vidéo|video|analyser|étudier|etudier|apprendre|progresser|reconquérir|reconquerir/i, 4],
+    [/vérifier|verifier|licence|fédération|federation|avocat|contrat clair|lire le contrat|cadre|garanties/i, 4],
+    [/promettre|poignée|poignee|remercier|discret|humble|concentré|concentre|calme|respect|diplomatique/i, 2],
+    [/frapper en force|en force|prendre le ballon|assumé|assumer/i, 4],
+    [/\bautorité\b|\bautorite\b|\bpro\b/i, 2],
+    [/accepter.*(offre|contrat|prêt|pret|essayer)|demander.*(temps de jeu|titulaire|garanties)/i, 5],
+    [/ignorer.*(provocation|presse|polémique|polemique|haters)|ne rien dire|passer mon chemin|ne pas répondre|ne pas repondre|bloquer/i, 2],
+    [/excuser|s'excuser|présenter des excuses|presenter des excuses/i, 2],
+    [/écouter|ecouter|suivre le plan|consigne|staff|suivre l'avis/i, 2],
     [/focus|carrière|carriere|rester focus/i, 2],
     [/refuser.*(poliment|boîte|boite|soirée|soiree|investir|mentir)/i, 4],
+    [/dernière danse|derniere danse|repousser|encore/i, 8],
   ];
 
   const BAD = [
-    [/\blégendaire\b|legendaire|panenka|rabona|tiktok|showboat|flex/i, -6],
-    [/belle vie|soirée|soiree|boîte|boite|alcool|fêter|feter|fête|fete|juste un verre|champagne/i, -6],
-    [/insulter|engueuler|clash|se battre|bagarre|provoc|humilier|menacer/i, -7],
-    [/payer.*(frais|agent)|envoyer de l'argent|prêter sans|preter sans/i, -6],
-    [/refuser.*(sélection|selection|convoq|entraî|entrain)/i, -4],
-    [/forcer.*(bless|douleur|derby)|jouer blessé|jouer blesse|cacher la douleur|anti-douleurs/i, -6],
+    [/\blégendaire\b|legendaire|panenka|rabona|tiktok|showboat|flex/i, -5],
+    [/belle vie|soirée|soiree|boîte|boite|alcool|fêter|feter|fête|fete|juste un verre|champagne/i, -7],
+    [/insulter|engueuler|clash|se battre|bagarre|provoc|humilier|menacer/i, -4],
+    [/payer.*(frais|agent)|envoyer de l'argent|prêter sans|preter sans/i, -5],
+    [/refuser.*(sélection|selection|convoq|entraî|entrain)/i, -5],
+    [/cacher la douleur|anti-douleurs/i, -5],
     [/bande du quartier|sécher|secher|arriver en retard/i, -5],
     [/drogue|parier|betting|casino|usurier|mentir sur/i, -8],
-    [/poster sur les reseaux|poster sur les réseaux|buzz|alimenter le drama/i, -3],
-    [/annoncer la retraite|prendre votre retraite/i, -12],
+    [/poster sur les reseaux|poster sur les réseaux|buzz|alimenter le drama/i, -4],
+    [/annoncer la retraite|prendre votre retraite/i, -14],
+    [/ombre du titulaire|patienter|rester en famille|études en parallèle|etudes en parallele|jouer simple/i, -2],
   ];
 
   function norm(s) {
@@ -313,31 +316,43 @@
     const c = _n(choice);
     const p = _n(prompt);
     let s = 0;
-    if (/collectif|travailler|soigner|repos|verif|licence|prudent|discret|ecout|rentrer|hygiene|garant|diplomat|excus|focus|danse|repousser|encore|titulaire|minutes/.test(c)) s += 5;
-    if (/panenka|clash|insult|engueul|soiree|boite|alcool|fete|tiktok|buzz|forcer|dopage|casino|legendaire|annoncer la retraite|prendre votre retraite|banc/.test(c)) s -= 6;
+    if (/ambitieux|titulaire|minutes|garant|transfert|offre|d1|selection|requin|rivale|tout miser|prendre le match|votre compte|poing|danse|repousser|encore|clutch/.test(c)) s += 6;
+    if (/travailler|soigner|verif|licence|focus|collectif|ecout|hygiene/.test(c)) s += 4;
+    if (/annoncer la retraite|prendre votre retraite|dopage|casino|alcool|soiree|boite|fete|tiktok|buzz|banc/.test(c)) s -= 10;
+    if (/panenka|legendaire|insult|engueul/.test(c)) s -= 3;
     if (/bless|douleur|medical|kine|radios/.test(p)) {
-      if (/repos|soigner|medical|inapte|suivre|repousser/.test(c)) s += 6;
-      if (/forcer|cacher|anti-douleur|annoncer la retraite/.test(c)) s -= 6;
+      if (/repos|soigner|medical|inapte|suivre|protocole|repousser/.test(c)) s += 5;
+      if (/forcer|cacher|anti-douleur|annoncer la retraite/.test(c)) s -= 4;
     }
-    if (/agent|frais|sponsor/.test(p)) {
-      if (/verif|licence|federation|refuser|lire/.test(c)) s += 8;
-      if (/^payer|donner|signer pour/.test(c)) s -= 8;
+    if (/agent|frais|sponsor|entourage/.test(p)) {
+      if (/ambitieux|requin|international|verif|licence/.test(c)) s += 6;
+      if (/^payer|donner/.test(c)) s -= 4;
+      if (/rester en famille|famille/.test(c)) s -= 2;
     }
     if (/penalty/.test(p)) {
       if (/force/.test(c)) s += 4;
       if (/panenka/.test(c)) s -= 5;
     }
     if (/retrait|radios|reverence/.test(p)) {
-      if (/danse|repousser|encore|battre|reconqu/.test(c)) s += 10;
-      if (/annoncer la retraite|prendre votre retraite|tete haute/.test(c)) s -= 12;
+      if (/danse|repousser|encore|battre|reconqu/.test(c)) s += 12;
+      if (/annoncer la retraite|prendre votre retraite|tete haute/.test(c)) s -= 14;
     }
     if (/soir|boite|fete|nuit/.test(p)) {
       if (/rentrer|refuser|dormir/.test(c)) s += 5;
-      if (/accepter|profiter|verre/.test(c)) s -= 5;
+      if (/accepter|profiter|verre/.test(c)) s -= 6;
     }
-    if (/coach|staff|entrain/.test(p)) {
-      if (/ecout|travaill|respect|discut/.test(c)) s += 5;
-      if (/clash|insult|engueul/.test(c)) s -= 6;
+    if (/coach|staff|entrain|banc|titulaire|ombre/.test(p)) {
+      if (/poing|titulaire|minutes|ambitieux|discut/.test(c)) s += 5;
+      if (/ecout|travaill|respect/.test(c)) s += 2;
+      if (/ombre|patienter|silence/.test(c)) s -= 3;
+    }
+    if (/finale|derby|decisif|grand match/.test(p)) {
+      if (/prendre le match|votre compte|assumer|clutch|force/.test(c)) s += 6;
+      if (/jouer simple|passer|effacer/.test(c)) s -= 2;
+    }
+    if (/club formateur|poach|structure|etudes|etude|football/.test(p)) {
+      if (/ambitieux|rivale|tout miser|football/.test(c)) s += 5;
+      if (/fidele|etudes|etude|parallele/.test(c)) s -= 2;
     }
     return s;
   }

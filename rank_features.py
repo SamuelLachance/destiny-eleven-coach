@@ -39,36 +39,54 @@ def _has(pat: str, text: str) -> float:
 
 
 def heuristic(prompt: str, choice: str) -> float:
+    """Heuristique ELITE: upside / ambition > safe accuracy."""
     c, p = _norm(choice), _norm(prompt)
     s = 0.0
-    s += 5 * _has(
-        r"collectif|travailler|soigner|repos|verif|licence|prudent|discret|ecout|"
-        r"rentrer|hygiene|garant|diplomat|excus|focus|danse|repousser|encore|titulaire|minutes",
+    # plafond carriere
+    s += 6 * _has(
+        r"ambitieux|titulaire|minutes|garant|transfert|offre|d1|selection|"
+        r"requin|rivale|tout miser|prendre le match|votre compte|poing|"
+        r"danse|repousser|encore|clutch",
         c,
     )
-    s -= 6 * _has(
-        r"panenka|clash|insult|engueul|soiree|boite|alcool|fete|tiktok|buzz|forcer|"
-        r"dopage|casino|legendaire|annoncer la retraite|prendre votre retraite|banc",
+    s += 4 * _has(
+        r"travailler|soigner|verif|licence|focus|collectif|ecout|hygiene",
         c,
     )
+    # ruine seulement (pas tout risque)
+    s -= 10 * _has(
+        r"annoncer la retraite|prendre votre retraite|dopage|casino|alcool|"
+        r"soiree|boite|fete|tiktok|buzz|banc",
+        c,
+    )
+    s -= 3 * _has(r"panenka|legendaire|insult|engueul", c)
     if _has(r"bless|douleur|medical|kine|radios", p):
-        s += 6 * _has(r"repos|soigner|medical|inapte|suivre|repousser", c)
-        s -= 6 * _has(r"forcer|cacher|anti-douleur|annoncer la retraite", c)
-    if _has(r"agent|frais|sponsor", p):
-        s += 8 * _has(r"verif|licence|federation|refuser|lire", c)
-        s -= 8 * _has(r"^payer|donner|signer pour", c)
+        # top runs: protocol souvent meilleur que all-in glass
+        s += 5 * _has(r"repos|soigner|medical|inapte|suivre|protocole|repousser", c)
+        s -= 4 * _has(r"forcer|cacher|anti-douleur|annoncer la retraite", c)
+    if _has(r"agent|frais|sponsor|entourage", p):
+        s += 6 * _has(r"ambitieux|requin|international|verif|licence", c)
+        s -= 4 * _has(r"^payer|donner", c)
+        s -= 2 * _has(r"rester en famille|famille", c)
     if _has(r"penalty", p):
         s += 4 * _has(r"force", c)
         s -= 5 * _has(r"panenka", c)
     if _has(r"retrait|radios|reverence", p):
-        s += 10 * _has(r"danse|repousser|encore|battre|reconqu", c)
-        s -= 12 * _has(r"annoncer la retraite|prendre votre retraite|tete haute", c)
+        s += 12 * _has(r"danse|repousser|encore|battre|reconqu", c)
+        s -= 14 * _has(r"annoncer la retraite|prendre votre retraite|tete haute", c)
     if _has(r"soir|boite|fete|nuit", p):
         s += 5 * _has(r"rentrer|refuser|dormir", c)
-        s -= 5 * _has(r"accepter|profiter|verre", c)
-    if _has(r"coach|staff|entrain", p):
-        s += 5 * _has(r"ecout|travaill|respect|discut", c)
-        s -= 6 * _has(r"clash|insult|engueul", c)
+        s -= 6 * _has(r"accepter|profiter|verre", c)
+    if _has(r"coach|staff|entrain|banc|titulaire|ombre", p):
+        s += 5 * _has(r"poing|titulaire|minutes|ambitieux|discut", c)
+        s += 2 * _has(r"ecout|travaill|respect", c)
+        s -= 3 * _has(r"ombre|patienter|silence", c)
+    if _has(r"finale|derby|decisif|grand match", p):
+        s += 6 * _has(r"prendre le match|votre compte|assumer|clutch|force", c)
+        s -= 2 * _has(r"jouer simple|passer|effacer", c)
+    if _has(r"club formateur|poach|structure|etudes|etude|football", p):
+        s += 5 * _has(r"ambitieux|rivale|tout miser|football", c)
+        s -= 2 * _has(r"fidele|etudes|etude|parallele", c)
     return s
 
 
