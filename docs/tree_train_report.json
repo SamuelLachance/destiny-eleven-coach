@@ -1,17 +1,46 @@
 {
   "type": "retrieval_tfidf_blend",
-  "label_goal": "elite_top_runs",
-  "cv_top1_holdout": 0.7215909090909091,
-  "min_sim": 0.25,
-  "blend_w_heuristic": 0.0,
+  "cv_top1_holdout": 0.6818181818181818,
+  "cv_grid": {
+    "sim0.15_w0.0": 0.6761363636363636,
+    "sim0.15_w0.35": 0.6761363636363636,
+    "sim0.15_w0.55": 0.6761363636363636,
+    "sim0.15_w0.75": 0.6761363636363636,
+    "sim0.15_w1.0": 0.6818181818181818,
+    "sim0.25_w0.0": 0.6761363636363636,
+    "sim0.25_w0.35": 0.6761363636363636,
+    "sim0.25_w0.55": 0.6761363636363636,
+    "sim0.25_w0.75": 0.6761363636363636,
+    "sim0.25_w1.0": 0.6818181818181818,
+    "sim0.35_w0.0": 0.6761363636363636,
+    "sim0.35_w0.35": 0.6761363636363636,
+    "sim0.35_w0.55": 0.6761363636363636,
+    "sim0.35_w0.75": 0.6761363636363636,
+    "sim0.35_w1.0": 0.6818181818181818,
+    "sim0.45_w0.0": 0.6761363636363636,
+    "sim0.45_w0.35": 0.6761363636363636,
+    "sim0.45_w0.55": 0.6761363636363636,
+    "sim0.45_w0.75": 0.6761363636363636,
+    "sim0.45_w1.0": 0.6818181818181818
+  },
+  "min_sim": 0.15,
+  "blend_w_heuristic": 1.0,
   "chance": 0.4919507575757576,
   "n_dilemmas": 176,
-  "flips_vs_mean_ev": 31,
-  "note": "Labels optimize elite/upside career (upper-tail + jackpot + trophies + ambition), not mean-EV safe accuracy. Ruin (retire) still vetoed. Retrieval CV ~72% leak-free on new labels; oracle ~100% on catalog.",
+  "note": "Policy from Engine Monte Carlo over career-path space (~2^100 approx): 4000 full careers, ~141k decision credits; label=P90 final score. Shipped traj oracle Engine P90=257 (elite was 207). Holdout retrieval CV=~68% (in-catalog oracle ~100%). Exact 2^100 enumeration impossible.",
   "leak_checks": {
     "group_kfold_event": true,
     "retrieval_bank_train_fold_only_for_cv": true,
-    "eval_against_elite_best_i": true,
+    "eval_against_career_best_i": true,
     "metrics_holdout_only": true
-  }
+  },
+  "label_goal": "trajectory_mc_career_p90",
+  "engine_career_p90": {
+    "random": 188,
+    "elite": 207,
+    "traj": 257,
+    "traj_cem": 244
+  },
+  "n_careers_sampled": 4000,
+  "decision_credits": 141458
 }
