@@ -398,10 +398,157 @@
     });
   }
 
-  function logisticScore(feats, weights, bias) {
-    let s = bias || 0;
-    for (let i = 0; i < weights.length && i < feats.length; i++) s += weights[i] * feats[i];
-    return s;
+  function fnv1a(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h >>> 0;
+  }
+
+  function hashFeats(prompt, choice, dim) {
+    const text = "C:" + String(choice || "").toLowerCase() + "|P:" + String(prompt || "").toLowerCase().slice(0, 240);
+    const v = new Array(dim).fill(0);
+    for (const n of [3, 4, 5]) {
+      for (let i = 0; i <= text.length - n; i++) {
+        const h = fnv1a(text.slice(i, i + n));
+        const idx = Math.floor(h / 2) % dim;
+        v[idx] += h % 2 === 0 ? 1 : -1;
+      }
+    }
+    let nrm = 0;
+    for (const x of v) nrm += x * x;
+    nrm = Math.sqrt(nrm);
+    if (nrm > 1e-9) for (let i = 0; i < v.length; i++) v[i] /= nrm;
+    return v;
+  }
+
+  function mlpForward(feats, layers) {
+    let x = feats.slice();
+    for (const layer of layers || []) {
+      const W = layer.W;
+      const b = layer.b;
+      const out = new Array(W.length);
+      for (let i = 0; i < W.length; i++) {
+        let s = b[i] || 0;
+        const row = W[i];
+        for (let j = 0; j < row.length && j < x.length; j++) s += row[j] * x[j];
+        out[i] = layer.act === "relu" ? Math.max(0, s) : s;
+      }
+      x = out;
+    }
+    return x[0] || 0;
+  }
+
+  function richNeuralRows(prompt, choices, keywords, hashDim, retrSim, retrMap) {
+    const baseM = dilemmaFeatureMatrix(prompt, choices, keywords);
+    const hs = choices.map((ch) => treeHeuristic(prompt, ch));
+    const hMean = hs.reduce((a, b) => a + b, 0) / (hs.length || 1);
+    const hMax = Math.max(...hs);
+    let bestRet = 0;
+    for (let i = 1; i < retrMap.length; i++) if (retrMap[i] > retrMap[bestRet]) bestRet = i;
+    return choices.map((ch, i) => {
+      const extra = hashFeats(prompt, ch, hashDim).concat([
+        retrSim,
+        retrMap[i] || 0,
+        i === bestRet && (retrMap[i] || 0) > 0 ? 1 : 0,
+        hs[i] / 20,
+        (hs[i] - hMean) / 20,
+        hs[i] >= hMax - 1e-9 ? 1 : 0,
+      ]);
+      return baseM[i].concat(extra);
+    });
+  }
+
+  function retrievalMap(prompt, choices, scenarios, minSim) {
+    if (!scenarios || !scenarios.length) return { sim: 0, mapped: choices.map(() => 0) };
+    let best = null;
+    let bestSim = -1;
+    for (const row of scenarios) {
+      const s = promptSim(prompt, row.prompt || "");
+      if (s > bestSim) {
+        bestSim = s;
+        best = row;
+      }
+    }
+    if (!best || bestSim < (minSim != null ? minSim : 0.15)) {
+      return { sim: bestSim, mapped: choices.map(() => 0) };
+    }
+    const want = (best.choices || [])[best.best_i] || "";
+    const mapped = choices.map((ch) => choiceSim(want, ch));
+    const scores = best.raw_scores || best.qualities;
+    if (scores && scores.length === (best.choices || []).length) {
+      const soft = choices.map((ch) => {
+        let bj = 0;
+        let bs = -1;
+        (best.choices || []).forEach((sch, j) => {
+          const s = choiceSim(ch, sch);
+          if (s > bs) {
+            bs = s;
+            bj = j;
+          }
+        });
+        return bs >= 0.15 ? Number(scores[bj]) : 0;
+      });
+      const lo = Math.min(...soft);
+      const hi = Math.max(...soft);
+      const normSoft = soft.map((v) => (v - lo) / (hi - lo + 1e-9));
+      return {
+        sim: bestSim,
+        mapped: mapped.map((v, i) => 0.5 * v + 0.5 * normSoft[i]),
+      };
+    }
+    return { sim: bestSim, mapped };
+  }
+
+  function pickRanMlp(prompt, choices, scenarios) {
+    const kws = treeModel.keywords || [];
+    const hashDim = treeModel.hash_dim || 48;
+    const layers = treeModel.layers || [];
+    const wNn = treeModel.w_nn != null ? treeModel.w_nn : 0.35;
+    const wRet = treeModel.w_retrieval != null ? treeModel.w_retrieval : 0.5;
+    const wH = treeModel.w_heuristic != null ? treeModel.w_heuristic : 0.15;
+    const gate = treeModel.gate_sim != null ? treeModel.gate_sim : null;
+    const lowMode = treeModel.low_mode || "blend";
+    const { sim, mapped } = retrievalMap(prompt, choices, scenarios, treeModel.min_sim);
+
+    // Gate: haute similarité → retrieval (souvent meilleur)
+    if (gate != null && gate <= 1.0 && sim >= gate && Math.max(...mapped) > 0) {
+      let bestI = 0;
+      for (let i = 1; i < mapped.length; i++) if (mapped[i] > mapped[bestI]) bestI = i;
+      return { pick: choices[bestI], score: mapped[bestI] };
+    }
+    if (lowMode === "retr") {
+      let bestI = 0;
+      for (let i = 1; i < mapped.length; i++) if (mapped[i] > mapped[bestI]) bestI = i;
+      if (Math.max(...mapped) > 0) return { pick: choices[bestI], score: mapped[bestI] };
+    }
+    if (lowMode === "heur") {
+      const hs = choices.map((ch) => treeHeuristic(prompt, ch));
+      let bestI = 0;
+      for (let i = 1; i < hs.length; i++) if (hs[i] > hs[bestI]) bestI = i;
+      return { pick: choices[bestI], score: hs[bestI] };
+    }
+
+    const rows = richNeuralRows(prompt, choices, kws, hashDim, sim, mapped);
+    const ml = rows.map((f) => mlpForward(f, layers));
+    const hs = choices.map((ch) => treeHeuristic(prompt, ch));
+    const norm = (arr) => {
+      const lo = Math.min(...arr);
+      const hi = Math.max(...arr);
+      return arr.map((v) => (v - lo) / (hi - lo + 1e-9));
+    };
+    const nn = norm(ml);
+    const rr = norm(mapped);
+    const hh = norm(hs);
+    const scores = choices.map((_, i) => {
+      if (lowMode === "mlp") return nn[i];
+      return wNn * nn[i] + wRet * rr[i] + wH * hh[i];
+    });
+    let bestI = 0;
+    for (let i = 1; i < scores.length; i++) if (scores[i] > scores[bestI]) bestI = i;
+    return { pick: choices[bestI], score: scores[bestI] };
   }
 
   function pickLogisticBlend(prompt, choices) {
@@ -440,10 +587,14 @@
     return s / trees.length;
   }
 
-  function pickWithTree(prompt, choices) {
+  function pickWithTree(prompt, choices, scenarios) {
     if (!treeModel) return null;
     const kws = treeModel.keywords || [];
     const type = treeModel.type || "";
+
+    if ((type === "ran_mlp_retrieval" || type === "ran_mlp_gated" || type === "mlp_neural_ranker" || type === "mlp_with_retrieval_primary") && treeModel.layers) {
+      return pickRanMlp(prompt, choices, scenarios);
+    }
 
     if (type === "logistic_pointwise_blend" && treeModel.weights) {
       return pickLogisticBlend(prompt, choices);
@@ -504,7 +655,7 @@
     const setup = pickSetup(prompt, c);
     if (setup) return { ...setup, choices: c, prompt };
 
-    const treePick = pickWithTree(prompt, c);
+    const treePick = pickWithTree(prompt, c, scenarios);
     if (treePick) {
       const pct = treeModel.cv_top1_holdout != null ? ` · CV ${(100 * treeModel.cv_top1_holdout).toFixed(0)}%` : "";
       const kind = (treeModel && treeModel.type) || "model";

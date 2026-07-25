@@ -1,0 +1,408 @@
+{
+  "n_events": 177,
+  "n_flips_vs_elite": 71,
+  "n_roll": 80,
+  "objective": "0.35*mean + 0.65*p90",
+  "flips": [
+    {
+      "id": "ev_viral_video",
+      "old": "Poster la vidéo",
+      "new": "Refuser, le terrain d'abord",
+      "objs": [
+        263.3231128619475,
+        263.44834602695835
+      ]
+    },
+    {
+      "id": "ev_futsal_transition",
+      "old": "Garder votre patte futsal",
+      "new": "Vous plier au moule athlétique",
+      "objs": [
+        267.0806929126868,
+        267.8162214132127
+      ]
+    },
+    {
+      "id": "ev_agent_choice",
+      "old": "Signer avec le requin international",
+      "new": "Rester en famille",
+      "objs": [
+        251.12050229133632,
+        251.54716848391354
+      ]
+    },
+    {
+      "id": "ev_spec_att",
+      "old": "🌀 Ailier dribbleur — l'art du déséquilibre",
+      "new": "🦊 Renard des surfaces — vivre pour le but",
+      "objs": [
+        257.84240431363145,
+        252.80071060999774,
+        255.42375627826198,
+        256.7924220832012
+      ]
+    },
+    {
+      "id": "ev_spec_def",
+      "old": "🛩️ Latéral offensif — dévorer le couloir",
+      "new": "🧱 Stoppeur — gagner chaque duel",
+      "objs": [
+        255.31705545357863,
+        250.18984759914395,
+        254.7009531166579,
+        254.2972426230628
+      ]
+    },
+    {
+      "id": "ev_spec_gk",
+      "old": "🧹 Gardien moderne — jouer au pied",
+      "new": "⚡ Gardien réflexes — l'arrêt impossible",
+      "objs": [
+        255.0811617874326,
+        258.97594365903063,
+        252.2689695275184,
+        260.449888871575
+      ]
+    },
+    {
+      "id": "ev_first_natcall",
+      "old": "Répondre présent, évidemment",
+      "new": "Décliner : « Je ne me sens pas prêt »",
+      "objs": [
+        287.58967479917965,
+        288.7996754289263
+      ]
+    },
+    {
+      "id": "ev_captain_or_leave",
+      "old": "Prendre le brassard et rester",
+      "new": "Ambitieux: Forcer le départ vers le sommet",
+      "objs": [
+        245.8416342918611,
+        248.53434301990524
+      ]
+    },
+    {
+      "id": "ev_style_reinvention",
+      "old": "Accepter la mue tactique",
+      "new": "Défendre ce qui fait votre force",
+      "objs": [
+        228.84055175445238,
+        233.80783536774885
+      ]
+    },
+    {
+      "id": "ev_goldenboot_race",
+      "old": "Accepter d'être servi en priorité",
+      "new": "Refuser : l'équipe avant tout",
+      "objs": [
+        278.7495777930647,
+        280.45856779102473
+      ]
+    },
+    {
+      "id": "ev_mil_maestro",
+      "old": "Endosser le costume de maestro",
+      "new": "Demander un rôle plus cadré",
+      "objs": [
+        237.51872240767213,
+        238.76916348852188
+      ]
+    },
+    {
+      "id": "ev_video_game_cover",
+      "old": "Accepter la couverture",
+      "new": "Décliner par superstition",
+      "objs": [
+        235.37289620768513,
+        239.6114594876815
+      ]
+    },
+    {
+      "id": "ev_paparazzi_romance",
+      "old": "Officialiser en grande pompe",
+      "new": "Protéger votre vie privée",
+      "objs": [
+        238.48285066049175,
+        239.93673265848452
+      ]
+    },
+    {
+      "id": "ev_wedding",
+      "old": "Le mariage du siècle",
+      "new": "Une cérémonie secrète",
+      "objs": [
+        217.36926373807205,
+        221.44808337783834
+      ]
+    },
+    {
+      "id": "ev_first_child",
+      "old": "Être à la maternité, quoi qu'il arrive",
+      "new": "Jouer le match, l'avion juste après",
+      "objs": [
+        208.64734052846308,
+        215.08289768073087
+      ]
+    },
+    {
+      "id": "ev_casino_night",
+      "old": "Rentrer dormir comme un moine",
+      "new": "Foncer, c'est la vie de star",
+      "objs": [
+        234.72268913238906,
+        230.98863385246005
+      ]
+    },
+    {
+      "id": "ev_charity_foundation",
+      "old": "Créer la fondation, en grand",
+      "new": "Donner discrètement, sans structure",
+      "objs": [
+        212.2463113960048,
+        219.75412444092558
+      ]
+    },
+    {
+      "id": "ev_burnout",
+      "old": "Courageux: En parler publiquement",
+      "new": "Consulter en secret et serrer les dents",
+      "objs": [
+        225.37427467979202,
+        226.77305008726086
+      ]
+    },
+    {
+      "id": "ev_clan_2",
+      "old": "Couvrir la famille, régler ça en interne",
+      "new": "Rompre professionnellement, publiquement",
+      "objs": [
+        216.20970472332806,
+        220.27352455953962
+      ]
+    },
+    {
+      "id": "ev_nat_bench",
+      "old": "Vous battre pour reconquérir le maillot",
+      "new": "Prendre votre retraite internationale",
+      "objs": [
+        209.56467890999497,
+        208.5929769416032
+      ]
+    },
+    {
+      "id": "ev_boardroom_path",
+      "old": "Découvrir les coulisses du pouvoir",
+      "new": "Joueur un jour, joueur toujours",
+      "objs": [
+        180.06770497866938,
+        183.8415330570792
+      ]
+    },
+    {
+      "id": "ev_family_pull",
+      "old": "Rentrer au pays",
+      "new": "Finir au sommet, loin des vôtres",
+      "objs": [
+        179.42891717093391,
+        186.1955720639101
+      ]
+    },
+    {
+      "id": "ev_statue",
+      "old": "Sourire et inaugurer quand même",
+      "new": "Demander discrètement une retouche",
+      "objs": [
+        200.8318731426345,
+        201.75005770035398
+      ]
+    },
+    {
+      "id": "ev_club_buyout",
+      "old": "Racheter le club de vos débuts",
+      "new": "Aider sans reprendre les rênes",
+      "objs": [
+        163.25932065959532,
+        164.4034785303931
+      ]
+    },
+    {
+      "id": "gen_tactics_shift",
+      "old": "Adhérer sans réserve",
+      "new": "Émettre des réserves en privé",
+      "objs": [
+        232.6614999750359,
+        235.35523404315893
+      ]
+    },
+    {
+      "id": "ev_school_finals",
+      "old": "Jouer le tournoi, tant pis pour les épreuves",
+      "new": "Passer les examens, rater le tournoi",
+      "objs": [
+        263.48065687755195,
+        261.45763633190586
+      ]
+    },
+    {
+      "id": "ev_position_retrain",
+      "old": "Élargir votre palette",
+      "new": "Rester un pur produit de votre poste",
+      "objs": [
+        266.37879849318745,
+        267.42976154187295
+      ]
+    },
+    {
+      "id": "ev_scam_return",
+      "old": "Porter plainte immédiatement",
+      "new": "Payer pour enterrer l'affaire",
+      "objs": [
+        260.57307546359243,
+        262.5873167546817
+      ]
+    },
+    {
+      "id": "ev_mental_coach",
+      "old": "Commencer le travail mental",
+      "new": "Gérer ça à l'ancienne",
+      "objs": [
+        219.45004304255863,
+        223.75654550241796
+      ]
+    },
+    {
+      "id": "ev_teammate_leak",
+      "old": "Ne plus rien dire à personne",
+      "new": "Le confronter devant le groupe",
+      "objs": [
+        237.96841996114773,
+        235.8343255169849
+      ]
+    },
+    {
+      "id": "ev_ultras_invitation",
+      "old": "Accepter l'invitation",
+      "new": "Garder une distance professionnelle",
+      "objs": [
+        235.24806905767537,
+        239.33305971797034
+      ]
+    },
+    {
+      "id": "ev_training_fight",
+      "old": "Les séparer physiquement",
+      "new": "Laisser le staff gérer",
+      "objs": [
+        224.40803633713742,
+        224.43947987442417
+      ]
+    },
+    {
+      "id": "ev_loan_decision",
+      "old": "Rester et bousculer la hiérarchie",
+      "new": "Temps de jeu: Partir en prêt pour jouer",
+      "objs": [
+        255.5701466604525,
+        253.99989983893403
+      ]
+    },
+    {
+      "id": "ev_painkillers",
+      "old": "Accepter les infiltrations",
+      "new": "Refuser de masquer la douleur",
+      "objs": [
+        205.73189967084454,
+        215.32591284362093
+      ]
+    },
+    {
+      "id": "ev_promotion_push",
+      "old": "Prendre le sprint final à votre compte",
+      "new": "Rester dans le collectif",
+      "objs": [
+        229.5130239090725,
+        239.89664869684134
+      ]
+    },
+    {
+      "id": "ev_giant_killing",
+      "old": "Jouer crânement votre chance",
+      "new": "Fermer le jeu et espérer les tirs au but",
+      "objs": [
+        241.01437135515428,
+        242.1578637162674
+      ]
+    },
+    {
+      "id": "ev_winter_slump",
+      "old": "Travailler deux fois plus",
+      "new": "Demander une semaine de coupure au coach",
+      "objs": [
+        231.48910666652324,
+        232.42867355173792
+      ]
+    },
+    {
+      "id": "ev_nat_qualifiers",
+      "old": "Réclamer votre place de titulaire",
+      "new": "Accepter un rôle de joker",
+      "objs": [
+        223.97580100564528,
+        227.22328990351772
+      ]
+    },
+    {
+      "id": "ev_car_madness",
+      "old": "Craquer pour le bolide",
+      "new": "Investir dans la pierre à la place",
+      "objs": [
+        224.9903381896803,
+        227.2372558845804
+      ]
+    },
+    {
+      "id": "ev_captain_stripped",
+      "old": "Avaler la couleuvre et jouer pour l'équipe",
+      "new": "Frontal: Exiger des explications devant le groupe",
+      "objs": [
+        227.6491809619457,
+        230.11590754075226
+      ]
+    }
+  ],
+  "note": "Counterfactual MC: force choice then elite continuation; labels = career value.",
+  "margin_filter": 2.0,
+  "kept_strong_cf": 98,
+  "reverted_ties_to_elite": 79,
+  "eval_random": {
+    "n": 500,
+    "mean": 242.63843439247336,
+    "std": 19.02442773351486,
+    "p50": 244.29373431076476,
+    "p90": 264.6966356953101,
+    "p95": 270.4056066999546,
+    "p99": 283.03390213661066,
+    "max": 291.04055241895804
+  },
+  "eval_cf_oracle": {
+    "n": 500,
+    "mean": 265.07987054606104,
+    "std": 14.755058590370341,
+    "p50": 265.83590819548016,
+    "p90": 283.2081141449257,
+    "p95": 287.9210599977442,
+    "p99": 297.94886007556784,
+    "max": 308.96134956764905
+  },
+  "eval_softmax_T2": {
+    "n": 500,
+    "mean": 263.02603672259085,
+    "std": 15.291395468912398,
+    "p50": 264.0049156688861,
+    "p90": 280.6779795000339,
+    "p95": 285.5190248459367,
+    "p99": 295.1889105783626,
+    "max": 304.992708134419
+  }
+}
