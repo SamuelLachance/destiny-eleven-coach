@@ -115,6 +115,33 @@
     .muted { color: #5b6b60; font-size: .92rem; }
     .choices { margin: 8px 0 0; padding-left: 18px; }
     .choices li.best { font-weight: 800; color: #0f5132; }
+    .choice-detail {
+      list-style: none;
+      margin: 10px 0 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .choice-detail li {
+      border: 1px solid #d5e0d4;
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fbfffa;
+    }
+    .choice-detail li.best {
+      border-color: #0f5132;
+      box-shadow: inset 3px 0 0 var(--accent);
+    }
+    .choice-detail .ct { font-weight: 800; margin-bottom: 2px; }
+    .choice-detail .pct { color: #0f5132; font-weight: 800; font-size: .9rem; margin-bottom: 6px; }
+    .choice-detail .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: .85rem; }
+    .choice-detail .hpos { color: #1b6b3a; font-weight: 700; font-size: .72rem; text-transform: uppercase; }
+    .choice-detail .hneg { color: #8a3b2a; font-weight: 700; font-size: .72rem; text-transform: uppercase; }
+    .choice-detail ul { margin: 2px 0 0; padding-left: 16px; }
+    @media (max-width: 520px) {
+      .choice-detail .cols { grid-template-columns: 1fr; }
+    }
     .pill {
       display: inline-flex;
       align-items: center;
@@ -182,9 +209,10 @@ Annoncer la retraite en fin de saison"></textarea>
       <div class="muted">Recommandation</div>
       <div class="pick" id="pick">—</div>
       <div class="muted" id="reason"></div>
+      <div class="muted" style="margin-top:12px">Tous les choix</div>
+      <ul class="choice-detail" id="choices"></ul>
       <div class="muted" style="margin-top:12px">Situation</div>
       <div id="prompt"></div>
-      <ol class="choices" id="choices"></ol>
     </section>
 
     <footer>
@@ -200,7 +228,8 @@ Annoncer la retraite en fin de saison"></textarea>
     Promise.all([
       fetch("./scenarios.json").then((r) => r.json()).catch(() => []),
       fetch("./tree_model.json").then((r) => r.json()).catch(() => null),
-    ]).then(([scen, tree]) => {
+      fetch("./event_outcomes.json").then((r) => r.json()).catch(() => null),
+    ]).then(([scen, tree, outcomes]) => {
       scenarios = scen || [];
       if (tree) {
         DestinyCoach.setTreeModel(tree);
@@ -212,6 +241,7 @@ Annoncer la retraite en fin de saison"></textarea>
             "% top-1 · sans leak event_id";
         }
       }
+      if (outcomes && DestinyCoach.setEventOutcomes) DestinyCoach.setEventOutcomes(outcomes);
     });
 
     const result = document.getElementById("result");
@@ -227,12 +257,36 @@ Annoncer la retraite en fin de saison"></textarea>
       reasonEl.textContent = data.reason || "";
       promptEl.textContent = data.prompt || "";
       choicesEl.innerHTML = "";
-      (data.choices || []).forEach((c) => {
-        const li = document.createElement("li");
-        li.textContent = c;
-        if (c === data.pick) li.classList.add("best");
-        choicesEl.appendChild(li);
-      });
+      const details = data.breakdowns || [];
+      if (details.length) {
+        details.forEach((b) => {
+          const li = document.createElement("li");
+          if (b.choice === data.pick) li.classList.add("best");
+          const pos = (b.pos || []).map((x) => "<li>" + x.replace(/</g, "&lt;") + "</li>").join("");
+          const neg = (b.neg || []).map((x) => "<li>" + x.replace(/</g, "&lt;") + "</li>").join("");
+          li.innerHTML =
+            '<div class="ct">' +
+            (b.choice === data.pick ? "★ " : "") +
+            String(b.choice || "").replace(/</g, "&lt;") +
+            "</div>" +
+            '<div class="pct">' +
+            String(b.labelPct || "").replace(/</g, "&lt;") +
+            "</div>" +
+            '<div class="cols"><div><div class="hpos">Points positifs</div><ul>' +
+            (pos || "<li>—</li>") +
+            "</ul></div><div><div class=\"hneg\">Risques</div><ul>" +
+            (neg || "<li>—</li>") +
+            "</ul></div></div>";
+          choicesEl.appendChild(li);
+        });
+      } else {
+        (data.choices || []).forEach((c) => {
+          const li = document.createElement("li");
+          li.innerHTML = '<div class="ct">' + String(c).replace(/</g, "&lt;") + "</div>";
+          if (c === data.pick) li.classList.add("best");
+          choicesEl.appendChild(li);
+        });
+      }
     }
 
     function run() {

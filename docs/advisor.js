@@ -381,9 +381,449 @@
   }
 
   let treeModel = null;
+  let eventOutcomes = null;
 
   function setTreeModel(model) {
     treeModel = model;
+  }
+
+  function setEventOutcomes(data) {
+    if (!data) {
+      eventOutcomes = null;
+      return;
+    }
+    let list = [];
+    if (Array.isArray(data.events)) {
+      list = data.events;
+    } else if (data.events && typeof data.events === "object") {
+      list = Object.keys(data.events).map((k) => data.events[k]);
+    }
+    eventOutcomes = {
+      scrapedAt: data.scrapedAt || null,
+      events: list
+        .map((ev) => {
+          if (!ev) return null;
+          // Format compact pré-calculé (build_event_outcomes.py)
+          if (Array.isArray(ev.o) && !ev.options) {
+            return {
+              id: ev.id,
+              text: ev.p || ev.text || "",
+              options: (ev.o || []).map((o) => ({
+                label: o.l || o.label || "",
+                outcomes: null,
+                summary: { success: o.s, pos: o.pos || [], neg: o.neg || [] },
+              })),
+            };
+          }
+          // Format scrape_all_events.py (fx + weights bruts)
+          return {
+            id: ev.id,
+            text: ev.text || ev.p || "",
+            options: (ev.options || []).map((o) => {
+              const base = String(o.label || o.text || "").trim();
+              const hint = o.hint ? String(o.hint).trim() : "";
+              const label = hint && base && !base.toLowerCase().startsWith(hint.toLowerCase() + ":")
+                ? hint + ": " + base
+                : base;
+              return {
+                label,
+                labelRaw: base,
+                hint,
+                outcomes: o.outcomes || [],
+                summary: null,
+              };
+            }),
+          };
+        })
+        .filter((ev) => ev && (ev.options || []).length >= 2),
+    };
+  }
+
+  const FX_LIVE_POS = {
+    t: "technique",
+    p: "physique",
+    m: "mental",
+    c: "charisme",
+    rep: "réputation",
+    form: "forme",
+    mor: "moral",
+    pot: "potentiel",
+    money: "argent",
+    coach: "relation coach",
+    team: "vestiaire",
+    natCall: "sélection",
+    trophy: "trophée",
+    award: "distinction",
+  };
+  const FX_LIVE_NEG = {
+    inj: "blessure",
+    fatigue: "fatigue",
+    ban: "suspension",
+    retire: "retraite",
+    end: "fin de carrière",
+    careerEnd: "fin de carrière",
+    natRetire: "retraite internationale",
+  };
+
+  function shortFxText(t, n) {
+    t = String(t || "")
+      .trim()
+      .replace(/\n/g, " ");
+    if (t.length <= n) return t;
+    const cut = t.slice(0, n).replace(/\s+\S*$/, "");
+    return (cut || t.slice(0, n)).replace(/[.,;:]+$/, "") + "…";
+  }
+
+  function liveNetImpact(fx) {
+    try {
+      if (typeof Engine !== "undefined" && Engine && typeof Engine.netImpact === "function") {
+        return Number(Engine.netImpact(fx || {})) || 0;
+      }
+    } catch (e) {}
+    if (!fx) return 0;
+    let s = 0;
+    s += 1.4 * (fx.t || 0) + (fx.p || 0) + 1.2 * (fx.m || 0) + (fx.c || 0);
+    s += 1.8 * (fx.rep || 0) + 0.7 * (fx.form || 0) + 0.5 * (fx.mor || 0);
+    s -= 2.5 * (fx.inj || 0);
+    if (fx.retire) s -= 28;
+    if (fx.careerEnd || fx.end) s -= 80;
+    return s;
+  }
+
+  function summarizeLiveOption(opt) {
+    const outs = opt.outcomes || [];
+    let tw = 0;
+    let posW = 0;
+    const pos = [];
+    const neg = [];
+    const seenP = new Set();
+    const seenN = new Set();
+    const push = (arr, seen, items, lim) => {
+      for (const b of items || []) {
+        if (!b || seen.has(b)) continue;
+        seen.add(b);
+        arr.push(b);
+        if (arr.length >= (lim || 3)) break;
+      }
+    };
+    for (const oc of outs) {
+      const w = oc.weight || 1;
+      tw += w;
+      const fx = oc.fx || {};
+      const impact = liveNetImpact(fx);
+      const text = shortFxText(oc.text || "", 70);
+      if (impact > 0.15) {
+        posW += w;
+        const bits = [];
+        for (const [k, v] of Object.entries(fx)) {
+          if (typeof v === "number" && v > 0 && FX_LIVE_POS[k]) bits.push("+" + FX_LIVE_POS[k]);
+          if (k === "transfer") bits.push("transfert");
+          if (k === "loan") bits.push("prêt");
+        }
+        push(pos, seenP, bits);
+        if (text && w / (tw || 1) >= 0.18) push(pos, seenP, [text]);
+      } else if (impact < -0.15) {
+        const bits = [];
+        for (const [k, v] of Object.entries(fx)) {
+          if (FX_LIVE_NEG[k] && v) bits.push(FX_LIVE_NEG[k]);
+          else if (typeof v === "number" && v < 0) bits.push((FX_LIVE_POS[k] || k) + " ↓");
+        }
+        push(neg, seenN, bits);
+        if (text && w / (tw || 1) >= 0.12) push(neg, seenN, [text]);
+      }
+    }
+    if (!pos.length) pos.push("effet mitigé");
+    if (!neg.length) neg.push("peu de risque direct");
+    return {
+      label: String(opt.label || opt.text || "").trim(),
+      success: Math.round((100 * posW) / (tw || 1)),
+      pos: pos.slice(0, 3),
+      neg: neg.slice(0, 3),
+      approx: false,
+      source: "engine",
+    };
+  }
+
+  function readLiveEventsPack() {
+    try {
+      if (global.__D11 && Array.isArray(global.__D11.EVENTS)) return global.__D11.EVENTS;
+      if (typeof EVENTS !== "undefined" && Array.isArray(EVENTS)) return EVENTS;
+    } catch (e) {}
+    return null;
+  }
+
+  function stripChoiceHint(s) {
+    return String(s || "").replace(/^\s*[^:]{1,28}:\s*/, "").trim();
+  }
+
+  function softChoiceOverlap(srcLabels, choices) {
+    let overlap = 0;
+    for (const ch of choices || []) {
+      let best = 0;
+      for (const lab of srcLabels) {
+        best = Math.max(best, choiceSim(lab, ch), choiceSim(stripChoiceHint(lab), stripChoiceHint(ch)));
+      }
+      if (best >= 0.35) overlap += best >= 0.55 ? 1 : 0.6;
+    }
+    return overlap;
+  }
+
+  function matchLiveEvent(prompt, choices) {
+    const events = readLiveEventsPack();
+    if (!events || !events.length) return null;
+    const pn = norm(prompt);
+    let best = null;
+    let bestScore = 0;
+    for (const ev of events) {
+      const opts = (ev.options || []).map((o) => String(o.label || o.text || "").trim()).filter(Boolean);
+      if (opts.length < 2) continue;
+      let score = softChoiceOverlap(opts, choices);
+      const ep = norm((ev.text || "").replace(/\{[^}]+\}/g, " "));
+      if (pn && ep && (pn.includes(ep.slice(0, 48)) || ep.includes(pn.slice(0, 48)))) score += 1.5;
+      else score += promptSim(prompt, (ev.text || "").replace(/\{[^}]+\}/g, " ")) * 2.2;
+      if (score > bestScore) {
+        bestScore = score;
+        best = ev;
+      }
+    }
+    if (!best || bestScore < 1.2) return null;
+    return best;
+  }
+
+  function matchStaticEvent(prompt, choices) {
+    const list = (eventOutcomes && eventOutcomes.events) || [];
+    if (!list.length) return null;
+    const pn = norm(prompt);
+    let best = null;
+    let bestScore = 0;
+    for (const ev of list) {
+      const opts = (ev.options || [])
+        .flatMap((o) => [o.label, o.labelRaw].filter(Boolean))
+        .map(String);
+      if ((ev.options || []).length < 2) continue;
+      let score = softChoiceOverlap(opts, choices);
+      const filled = (ev.text || "").replace(/\{[^}]+\}/g, " ");
+      const ep = norm(filled);
+      if (pn && ep && (pn.includes(ep.slice(0, 48)) || ep.includes(pn.slice(0, 48)))) score += 1.5;
+      else score += promptSim(prompt, filled) * 2.2;
+      if (score > bestScore) {
+        bestScore = score;
+        best = ev;
+      }
+    }
+    if (!best || bestScore < 1.2) return null;
+    return best;
+  }
+
+  function mapOptionDetail(srcOpts, choice) {
+    let best = null;
+    let bestS = -1;
+    for (const o of srcOpts || []) {
+      const label = o.label || o.l || "";
+      const s = Math.max(choiceSim(label, choice), choiceSim(stripChoiceHint(label), stripChoiceHint(choice)));
+      if (s > bestS) {
+        bestS = s;
+        best = o;
+      }
+    }
+    if (bestS < 0.2) return null;
+    return { opt: best, sim: bestS };
+  }
+
+  function heuristicConsequenceTags(text) {
+    const cl = (text || "").toLowerCase();
+    const pos = [];
+    const neg = [];
+    if (/travailler|entraî|entrain|progress|apprendre|protocole|soigner|hygiène|hygiene|vérif|verif|licence/.test(cl)) {
+      pos.push("progression / discipline");
+    }
+    if (/ambitieux|titulaire|minutes|transfert|d1|requin|prendre le match|votre compte|clutch|assumer/.test(cl)) {
+      pos.push("statut / ambition");
+    }
+    if (/collectif|équipe|equipe|discret|diplomatique|excuses|écouter|ecouter/.test(cl)) {
+      pos.push("vestiaire / image");
+    }
+    if (/repos|rentrer|dormir|récup|recuper|médical|medical|inapte/.test(cl)) {
+      pos.push("santé / fraîcheur");
+    }
+    if (/soirée|soiree|boîte|boite|alcool|fête|fete|clash|insulter|panenka|tiktok|buzz|forcer|cacher/.test(cl)) {
+      neg.push("risque image / forme");
+    }
+    if (/retraite|career|fin/.test(cl) && /annoncer|prendre/.test(cl)) {
+      neg.push("fin de carrière");
+    }
+    if (/payer|investir|yolo|crypto|casino|offshore/.test(cl)) {
+      neg.push("risque financier");
+    }
+    if (/bless|douleur|infiltration|forcer le retour/.test(cl)) {
+      neg.push("risque blessure");
+    }
+    if (!pos.length) pos.push("gain possible selon tirage");
+    if (!neg.length) neg.push("contrepartie possible");
+    return { pos: pos.slice(0, 3), neg: neg.slice(0, 3) };
+  }
+
+  function matchScenarioRow(prompt, choices, scenarios) {
+    if (!scenarios || !scenarios.length) return null;
+    const choiceSet = new Set((choices || []).map(norm));
+    const pn = norm(prompt);
+    let best = null;
+    let bestOverlap = 0;
+    for (const row of scenarios) {
+      const rc = (row.choices || []).map(norm);
+      if (rc.length < 2) continue;
+      let overlap = 0;
+      for (const x of rc) if (choiceSet.has(x)) overlap++;
+      if (overlap >= 2 && overlap >= bestOverlap) {
+        bestOverlap = overlap;
+        best = row;
+      }
+    }
+    if (best && bestOverlap >= 2) return best;
+    let fuzzy = null;
+    let fuzzySim = 0;
+    for (const row of scenarios) {
+      const s = promptSim(prompt, row.prompt || "");
+      if (s > fuzzySim) {
+        fuzzySim = s;
+        fuzzy = row;
+      }
+    }
+    if (fuzzy && fuzzySim >= 0.2) return fuzzy;
+    return null;
+  }
+
+  /** Détail pos/nég/% pour chaque choix (données Engine > export > oracle > heuristique). */
+  function choiceBreakdowns(prompt, choices, scenarios) {
+    const c = cleanChoices(choices);
+    if (c.length < 2) return [];
+
+    const liveEv = matchLiveEvent(prompt, c);
+    if (liveEv) {
+      return c.map((ch) => {
+        let bestOpt = null;
+        let bestS = -1;
+        for (const o of liveEv.options || []) {
+          const label = String(o.label || o.text || "").trim();
+          const s = choiceSim(label, ch);
+          if (s > bestS) {
+            bestS = s;
+            bestOpt = o;
+          }
+        }
+        if (!bestOpt || bestS < 0.2) {
+          const tags = heuristicConsequenceTags(ch);
+          return {
+            choice: ch,
+            pos: tags.pos,
+            neg: tags.neg,
+            success: null,
+            approx: true,
+            source: "estimé",
+            labelPct: "Réussite ~?% (estimé)",
+          };
+        }
+        const sum = summarizeLiveOption(bestOpt);
+        return {
+          choice: ch,
+          pos: sum.pos,
+          neg: sum.neg,
+          success: sum.success,
+          approx: false,
+          source: "engine",
+          labelPct: "Réussite " + sum.success + "%",
+        };
+      });
+    }
+
+    const staticEv = matchStaticEvent(prompt, c);
+    if (staticEv) {
+      return c.map((ch) => {
+        const mapped = mapOptionDetail(staticEv.options || [], ch);
+        if (!mapped) {
+          const tags = heuristicConsequenceTags(ch);
+          return {
+            choice: ch,
+            pos: tags.pos,
+            neg: tags.neg,
+            success: null,
+            approx: true,
+            source: "estimé",
+            labelPct: "Réussite ~?% (estimé)",
+          };
+        }
+        const o = mapped.opt;
+        const sum = o.summary
+          ? { success: o.summary.success, pos: o.summary.pos, neg: o.summary.neg }
+          : summarizeLiveOption(o);
+        return {
+          choice: ch,
+          pos: sum.pos || [],
+          neg: sum.neg || [],
+          success: sum.success,
+          approx: false,
+          source: "outcomes",
+          labelPct: "Réussite " + sum.success + "%",
+        };
+      });
+    }
+
+    const row = matchScenarioRow(prompt, c, scenarios);
+    if (row) {
+      const scores = row.raw_scores || row.qualities;
+      const srcChoices = row.choices || [];
+      return c.map((ch) => {
+        let bj = -1;
+        let bs = -1;
+        srcChoices.forEach((sch, j) => {
+          const s = choiceSim(ch, sch);
+          if (s > bs) {
+            bs = s;
+            bj = j;
+          }
+        });
+        const tags = heuristicConsequenceTags(ch);
+        let success = null;
+        if (bj >= 0 && bs >= 0.2 && scores && scores[bj] != null) {
+          const q = row.qualities && row.qualities[bj] != null ? Number(row.qualities[bj]) : null;
+          if (q != null) success = Math.max(15, Math.min(95, Math.round(q)));
+          else {
+            const vals = scores.map(Number);
+            const lo = Math.min(...vals);
+            const hi = Math.max(...vals);
+            const t = (Number(scores[bj]) - lo) / (hi - lo + 1e-9);
+            success = Math.round(25 + 60 * t);
+          }
+        }
+        return {
+          choice: ch,
+          pos: tags.pos,
+          neg: tags.neg,
+          success,
+          approx: true,
+          source: "oracle",
+          labelPct: success != null ? "Réussite ~" + success + "%" : "Réussite ~?% (estimé)",
+        };
+      });
+    }
+
+    const hs = c.map((ch) => scoreChoice(ch, prompt, null));
+    const lo = Math.min(...hs);
+    const hi = Math.max(...hs);
+    return c.map((ch, i) => {
+      const tags = heuristicConsequenceTags(ch);
+      const t = (hs[i] - lo) / (hi - lo + 1e-9);
+      const success = Math.round(30 + 50 * t);
+      return {
+        choice: ch,
+        pos: tags.pos,
+        neg: tags.neg,
+        success,
+        approx: true,
+        source: "estimé",
+        labelPct: "Réussite ~" + success + "% (estimé)",
+      };
+    });
   }
 
   function _n(s) {
@@ -760,12 +1200,25 @@
     return null;
   }
 
+  function withBreakdowns(result, prompt, choices, scenarios) {
+    const c = result.choices || cleanChoices(choices);
+    const breakdowns = choiceBreakdowns(prompt, c, scenarios);
+    return { ...result, choices: c, breakdowns };
+  }
+
   function advise(prompt, choices, scenarios, player) {
     const c = cleanChoices(choices);
-    if (!c.length) return { pick: "", reason: "Aucun choix détecté", choices: [] };
+    if (!c.length) return { pick: "", reason: "Aucun choix détecté", choices: [], breakdowns: [] };
 
     const hard = playerHardOverride(prompt, c, player);
-    if (hard) return { ...hard, choices: c, prompt, player, phase: careerPhase(player) };
+    if (hard) {
+      return withBreakdowns(
+        { ...hard, choices: c, prompt, player, phase: careerPhase(player) },
+        prompt,
+        c,
+        scenarios
+      );
+    }
 
     const oracle = lookupOracle(prompt, c, scenarios);
     if (oracle) {
@@ -787,47 +1240,69 @@
           top.s >= oracleScore.s + 6 &&
           (phase === "injured" || phase === "develop" || phase === "decline")
         ) {
-          return {
-            pick: top.ch,
-            reason: `oracle+stats (${phase}) · override joueur`,
-            choices: c,
+          return withBreakdowns(
+            {
+              pick: top.ch,
+              reason: `oracle+stats (${phase}) · override joueur`,
+              choices: c,
+              prompt,
+              player,
+              phase,
+            },
             prompt,
-            player,
-            phase,
-          };
+            c,
+            scenarios
+          );
         }
       }
-      return {
-        ...oracle,
-        choices: c,
+      return withBreakdowns(
+        {
+          ...oracle,
+          choices: c,
+          prompt,
+          player,
+          phase: careerPhase(player),
+          reason: player
+            ? `${oracle.reason} · ${careerPhase(player)} OVR${player.ovr || "?"}`
+            : oracle.reason,
+        },
         prompt,
-        player,
-        phase: careerPhase(player),
-        reason: player
-          ? `${oracle.reason} · ${careerPhase(player)} OVR${player.ovr || "?"}`
-          : oracle.reason,
-      };
+        c,
+        scenarios
+      );
     }
 
     const retire = antiRetire(prompt, c);
-    if (retire) return { ...retire, choices: c, prompt, player, phase: careerPhase(player) };
+    if (retire) {
+      return withBreakdowns(
+        { ...retire, choices: c, prompt, player, phase: careerPhase(player) },
+        prompt,
+        c,
+        scenarios
+      );
+    }
 
     const setup = pickSetup(prompt, c);
-    if (setup) return { ...setup, choices: c, prompt };
+    if (setup) return withBreakdowns({ ...setup, choices: c, prompt }, prompt, c, scenarios);
 
     const treePick = pickWithTree(prompt, c, scenarios, player);
     if (treePick) {
       const pct = treeModel.cv_top1_holdout != null ? ` · CV ${(100 * treeModel.cv_top1_holdout).toFixed(0)}%` : "";
       const kind = (treeModel && treeModel.type) || "model";
       const phase = careerPhase(player);
-      return {
-        pick: treePick.pick,
-        reason: `${kind} score≈${treePick.score.toFixed(2)}${pct}${player ? ` · ${phase}` : ""}`,
-        choices: c,
+      return withBreakdowns(
+        {
+          pick: treePick.pick,
+          reason: `${kind} score≈${treePick.score.toFixed(2)}${pct}${player ? ` · ${phase}` : ""}`,
+          choices: c,
+          prompt,
+          player,
+          phase,
+        },
         prompt,
-        player,
-        phase,
-      };
+        c,
+        scenarios
+      );
     }
 
     let best = c[0];
@@ -843,14 +1318,19 @@
     if (player) why += ` · ${careerPhase(player)}`;
     if (bestScore >= 5) why += " · signal Engine";
     else if (bestScore <= 0) why += " · moins risqué";
-    return {
-      pick: best,
-      reason: `${why} (h=${bestScore.toFixed(1)})`,
-      choices: c,
+    return withBreakdowns(
+      {
+        pick: best,
+        reason: `${why} (h=${bestScore.toFixed(1)})`,
+        choices: c,
+        prompt,
+        player,
+        phase: careerPhase(player),
+      },
       prompt,
-      player,
-      phase: careerPhase(player),
-    };
+      c,
+      scenarios
+    );
   }
 
   function parseBlob(blob) {
@@ -880,6 +1360,8 @@
     cleanChoices,
     scoreChoice,
     setTreeModel,
+    setEventOutcomes,
+    choiceBreakdowns,
     playerBias,
     careerPhase,
   };

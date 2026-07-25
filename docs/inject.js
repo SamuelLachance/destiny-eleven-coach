@@ -86,6 +86,41 @@
     return [prompt, choices];
   }
 
+  function esc(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function renderBreakdowns(advice) {
+    const host = document.getElementById("d11-coach-choices");
+    if (!host) return;
+    const list = advice.breakdowns || [];
+    const pick = advice.pick || "";
+    if (!list.length) {
+      host.innerHTML = "";
+      return;
+    }
+    host.innerHTML = list
+      .map((b) => {
+        const isPick = b.choice === pick;
+        const pos = (b.pos || []).map((x) => `<li>${esc(x)}</li>`).join("");
+        const neg = (b.neg || []).map((x) => `<li>${esc(x)}</li>`).join("");
+        return (
+          `<div class="d11-choice${isPick ? " d11-choice-pick" : ""}">` +
+          `<div class="d11-choice-title">${isPick ? "★ " : ""}${esc(b.choice)}</div>` +
+          `<div class="d11-choice-pct">${esc(b.labelPct || "Réussite ~?%")}</div>` +
+          `<div class="d11-choice-cols">` +
+          `<div><div class="d11-col-h d11-pos">Points positifs</div><ul>${pos || "<li>—</li>"}</ul></div>` +
+          `<div><div class="d11-col-h d11-neg">Risques</div><ul>${neg || "<li>—</li>"}</ul></div>` +
+          `</div></div>`
+        );
+      })
+      .join("");
+  }
+
   function ensureUI() {
     if (document.getElementById("d11-coach-root")) return;
     const root = document.createElement("div");
@@ -95,7 +130,7 @@
         #d11-coach-root {
           all: initial;
           position: fixed; z-index: 2147483646;
-          right: 12px; bottom: 12px; width: min(340px, calc(100vw - 24px));
+          right: 12px; bottom: 12px; width: min(360px, calc(100vw - 24px));
           font-family: system-ui, Segoe UI, sans-serif;
         }
         #d11-coach-panel {
@@ -103,14 +138,46 @@
           border: 2px solid #c8f560; border-radius: 16px;
           box-shadow: 0 16px 40px rgba(0,0,0,.35);
           padding: 12px 14px; line-height: 1.35;
+          max-height: min(78vh, 640px); overflow: auto;
         }
         #d11-coach-panel h3 { margin: 0 0 6px; font-size: 14px; color: #c8f560; }
-        #d11-coach-pick { font-size: 18px; font-weight: 800; margin: 6px 0; color: #fff; }
+        #d11-coach-pick { font-size: 17px; font-weight: 800; margin: 6px 0; color: #fff; }
         #d11-coach-reason, #d11-coach-status { font-size: 12px; opacity: .85; }
-        #d11-coach-prompt { font-size: 12px; margin-top: 8px; max-height: 72px; overflow: auto; opacity: .9; }
+        #d11-coach-prompt { font-size: 12px; margin-top: 8px; max-height: 56px; overflow: auto; opacity: .9; }
+        #d11-coach-choices { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+        #d11-coach-root .d11-choice {
+          border: 1px solid rgba(200,245,96,.35);
+          border-radius: 10px; padding: 8px 9px; background: rgba(0,0,0,.18);
+        }
+        #d11-coach-root .d11-choice-pick {
+          border-color: #c8f560; background: rgba(200,245,96,.12);
+        }
+        #d11-coach-root .d11-choice-title {
+          font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 2px;
+        }
+        #d11-coach-root .d11-choice-pct {
+          font-size: 12px; font-weight: 700; color: #c8f560; margin-bottom: 6px;
+        }
+        #d11-coach-root .d11-choice-cols {
+          display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+        }
+        #d11-coach-root .d11-col-h {
+          font-size: 10px; text-transform: uppercase; letter-spacing: .03em;
+          opacity: .9; margin-bottom: 2px; font-weight: 700;
+        }
+        #d11-coach-root .d11-pos { color: #9be7a8; }
+        #d11-coach-root .d11-neg { color: #ffb4a8; }
+        #d11-coach-root ul {
+          margin: 0; padding-left: 14px; font-size: 11px; opacity: .95;
+        }
+        #d11-coach-root li { margin: 0 0 2px; }
         #d11-coach-close {
           position: absolute; top: 8px; right: 10px; border: 0; background: transparent;
           color: #c8f560; font-size: 18px; cursor: pointer;
+        }
+        @media (max-width: 420px) {
+          #d11-coach-root { right: 8px; bottom: 8px; width: calc(100vw - 16px); }
+          #d11-coach-root .d11-choice-cols { grid-template-columns: 1fr; }
         }
       </style>
       <div id="d11-coach-panel" style="position:relative">
@@ -119,6 +186,7 @@
         <div id="d11-coach-status">Chargement…</div>
         <div id="d11-coach-pick"></div>
         <div id="d11-coach-reason"></div>
+        <div id="d11-coach-choices"></div>
         <div id="d11-coach-prompt"></div>
       </div>
     `;
@@ -138,11 +206,13 @@
       if (!window.DestinyCoach) {
         await loadScript(BASE + "advisor.js");
       }
-      const [scenarios, tree] = await Promise.all([
+      const [scenarios, tree, outcomes] = await Promise.all([
         fetch(BASE + "scenarios.json").then((r) => r.json()),
         fetch(BASE + "tree_model.json").then((r) => r.json()).catch(() => null),
+        fetch(BASE + "event_outcomes.json").then((r) => r.json()).catch(() => null),
       ]);
       if (tree && window.DestinyCoach.setTreeModel) DestinyCoach.setTreeModel(tree);
+      if (outcomes && window.DestinyCoach.setEventOutcomes) DestinyCoach.setEventOutcomes(outcomes);
       status.textContent = "Actif — joue, le conseil se met à jour";
 
       let last = "";
@@ -151,6 +221,7 @@
           const [prompt, choices] = extract();
           if (!choices || choices.length < 2) {
             status.textContent = "En attente d’un dilemme…";
+            document.getElementById("d11-coach-choices").innerHTML = "";
             return;
           }
           const player =
@@ -179,8 +250,11 @@
             if ((player.injuryWeeks || 0) > 0) bits.push("blessé×" + player.injuryWeeks);
             reason = (reason ? reason + " · " : "") + bits.join(" · ");
           }
+          const src = (advice.breakdowns && advice.breakdowns[0] && advice.breakdowns[0].source) || "";
+          if (src && src !== "estimé") reason = (reason ? reason + " · " : "") + "fx:" + src;
           document.getElementById("d11-coach-reason").textContent = reason;
           document.getElementById("d11-coach-prompt").textContent = prompt || "";
+          renderBreakdowns(advice);
           status.textContent = player
             ? "Conseil à jour (save lu)"
             : "Conseil à jour (pas de save)";
