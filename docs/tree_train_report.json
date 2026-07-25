@@ -27,14 +27,14 @@
   "blend_w_heuristic": 1.0,
   "chance": 0.4919507575757576,
   "n_dilemmas": 176,
-  "note": "Policy from Engine Monte Carlo over career-path space (~2^100 approx): 4000 full careers, ~141k decision credits; label=P90 final score. Shipped traj oracle Engine P90=257 (elite was 207). Holdout retrieval CV=~68% (in-catalog oracle ~100%). Exact 2^100 enumeration impossible.",
+  "note": "Reward ONLY top-world careers (Ballon d'Or + score>=240). UI shows Top mondial % = empirical P(top|choice) from Engine MC, not local outcome success.",
   "leak_checks": {
     "group_kfold_event": true,
     "retrieval_bank_train_fold_only_for_cv": true,
     "eval_against_career_best_i": true,
     "metrics_holdout_only": true
   },
-  "label_goal": "trajectory_mc_career_p90",
+  "label_goal": "top_mondial_binary_reward",
   "engine_career_p90": {
     "random": 188,
     "elite": 207,
@@ -42,5 +42,12 @@
     "traj_cem": 244
   },
   "n_careers_sampled": 4000,
-  "decision_credits": 141458
+  "decision_credits": 141458,
+  "reward": "ballon>=1 AND score>=240",
+  "engine_top_mondial": {
+    "random": 0.03333333333333333,
+    "prev": 0.16666666666666666,
+    "top_mondial": 0.12,
+    "always0": 0.14
+  }
 }

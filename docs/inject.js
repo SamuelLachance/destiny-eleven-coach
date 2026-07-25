@@ -38,10 +38,13 @@
       );
     };
     const hasLetter = (s) => /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(s || "");
+    // Start-career / landing CTAs — not real dilemma options
+    const startCareerCta =
+      /^(commencer(\s+(la|ma)\s+carri[eè]re)?|jouer(\s+maintenant)?|lancer(\s+la\s+partie)?|continuer(\s+vers\s+(le\s+)?setup)?)$/i;
     const skipExact =
-      /^(continuer|retour|commencer|jouer maintenant|en voir plus|lancer|soutenir|soutenir le projet|cookies|annuler|mettre à jour|boutique|badges|panthéon|pantheon|partager|ma fiche|défier|defier|défier un ami|defier un ami|voir la carrière|statistiques|palmarès|palmares|parcours|distinctions|face à face|carte)$/i;
+      /^(continuer|retour|commencer|commencer la carri[eè]re|commencer ma carri[eè]re|jouer|jouer maintenant|en voir plus|lancer|lancer la partie|soutenir|soutenir le projet|cookies|annuler|mettre à jour|boutique|badges|panthéon|pantheon|partager|ma fiche|défier|defier|défier un ami|defier un ami|voir la carrière|statistiques|palmarès|palmares|parcours|distinctions|face à face|carte|continuer vers setup|continuer vers le setup)$/i;
     const skipPhrase =
-      /cookies|soutenir le projet|mettre à jour|google analytics|refuser les cookies|accepter les cookies|jouer maintenant|en voir plus/i;
+      /cookies|soutenir le projet|mettre à jour|google analytics|refuser les cookies|accepter les cookies|jouer maintenant|en voir plus|commencer (la|ma) carri/i;
 
     const promptCandidates = [];
     document
@@ -61,10 +64,11 @@
     const push = (raw) => {
       let t = norm(raw);
       if (!t || !hasLetter(t) || t.length > 220) return;
-      if (skipExact.test(t) || skipPhrase.test(t)) return;
+      if (skipExact.test(t) || skipPhrase.test(t) || startCareerCta.test(t)) return;
       if (prompt && t.length > 80 && prompt.includes(t.slice(0, 40))) return;
       const firstLine = t.split(/\n/)[0].trim();
       if (firstLine.length >= 2 && firstLine.length < t.length && firstLine.length <= 80) t = firstLine;
+      if (skipExact.test(t) || skipPhrase.test(t) || startCareerCta.test(t)) return;
       if (seen.has(t)) return;
       seen.add(t);
       choices.push(t);
@@ -84,6 +88,32 @@
       });
     }
     return [prompt, choices];
+  }
+
+  /** True when the screen is only start-career chrome (no real dilemma). */
+  function isStartCareerScreen(choices) {
+    const startCareerCta =
+      /^(commencer(\s+(la|ma)\s+carri[eè]re)?|jouer(\s+maintenant)?|lancer(\s+la\s+partie)?|continuer(\s+vers\s+(le\s+)?setup)?)$/i;
+    const c = (choices || [])
+      .map((x) => (x || "").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    if (!c.length) return false;
+    if (c.every((t) => startCareerCta.test(t))) return true;
+    if (c.length === 1 && startCareerCta.test(c[0])) return true;
+    return false;
+  }
+
+  function clearAdviceUI(statusMsg) {
+    const status = document.getElementById("d11-coach-status");
+    if (status) status.textContent = statusMsg || "En attente d’un dilemme…";
+    const pick = document.getElementById("d11-coach-pick");
+    if (pick) pick.textContent = "";
+    const reason = document.getElementById("d11-coach-reason");
+    if (reason) reason.textContent = "";
+    const promptEl = document.getElementById("d11-coach-prompt");
+    if (promptEl) promptEl.textContent = "";
+    const host = document.getElementById("d11-coach-choices");
+    if (host) host.innerHTML = "";
   }
 
   function esc(s) {
@@ -111,7 +141,7 @@
         return (
           `<div class="d11-choice${isPick ? " d11-choice-pick" : ""}">` +
           `<div class="d11-choice-title">${isPick ? "★ " : ""}${esc(b.choice)}</div>` +
-          `<div class="d11-choice-pct">${esc(b.labelPct || "Réussite ~?%")}</div>` +
+          `<div class="d11-choice-pct">${esc(b.labelPct || "Top mondial ~?%")}</div>` +
           `<div class="d11-choice-cols">` +
           `<div><div class="d11-col-h d11-pos">Points positifs</div><ul>${pos || "<li>—</li>"}</ul></div>` +
           `<div><div class="d11-col-h d11-neg">Risques</div><ul>${neg || "<li>—</li>"}</ul></div>` +
@@ -219,9 +249,31 @@
       setInterval(() => {
         try {
           const [prompt, choices] = extract();
-          if (!choices || choices.length < 2) {
-            status.textContent = "En attente d’un dilemme…";
-            document.getElementById("d11-coach-choices").innerHTML = "";
+          // Also peek raw start-career CTAs in case extract already filtered them out
+          const rawStart = [];
+          const startCareerCta =
+            /^(commencer(\s+(la|ma)\s+carri[eè]re)?|jouer(\s+maintenant)?|lancer(\s+la\s+partie)?|continuer(\s+vers\s+(le\s+)?setup)?)$/i;
+          const vis = (el) => {
+            const r = el.getBoundingClientRect();
+            const st = getComputedStyle(el);
+            return r.width > 8 && r.height > 8 && st.visibility !== "hidden" && st.display !== "none" && Number(st.opacity) !== 0;
+          };
+          document.querySelectorAll("#btn-start, button, .btn, [role='button'], .opt-btn").forEach((el) => {
+            if (!vis(el)) return;
+            const t = (el.innerText || el.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
+            if (t && startCareerCta.test(t)) rawStart.push(t);
+          });
+          if (isStartCareerScreen(choices) || isStartCareerScreen(rawStart) || !choices || choices.length < 2) {
+            const msg =
+              isStartCareerScreen(choices) || isStartCareerScreen(rawStart)
+                ? "Démarre la carrière"
+                : "En attente d’un dilemme…";
+            if (last !== "__idle__" + msg) {
+              last = "__idle__" + msg;
+              clearAdviceUI(msg);
+            } else {
+              status.textContent = msg;
+            }
             return;
           }
           const player =

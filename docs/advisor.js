@@ -3,6 +3,9 @@
  */
 (function (global) {
   const UI_NOISE = /^(partager|ma fiche|défier un ami|defier un ami|défier|defier|continuer|retour|carte|soutenir le projet|voir la carrière|statistiques|palmarès|palmares|parcours|distinctions|face à face)$/i;
+  // Landing / start-career CTAs — not real dilemma options
+  const START_CAREER_CTA =
+    /^(commencer(\s+(la|ma)\s+carri[eè]re)?|jouer(\s+maintenant)?|lancer(\s+la\s+partie)?|continuer(\s+vers\s+(le\s+)?setup)?)$/i;
 
   const GOOD = [
     [/\bambitieux\b|tout miser|requin|rivale|transfert|offre|\bd1\b|partir|signer/i, 6],
@@ -57,12 +60,19 @@
       const t = String(x || "").trim();
       if (!t || seen.has(t)) continue;
       if (!/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(t)) continue;
-      if (UI_NOISE.test(t)) continue;
+      if (UI_NOISE.test(t) || START_CAREER_CTA.test(t)) continue;
       if (t.length > 220) continue;
       seen.add(t);
       out.push(t);
     }
     return out;
+  }
+
+  /** True when every remaining label is a start-career CTA (no real dilemma). */
+  function isStartCareerOnly(choices) {
+    const raw = (choices || []).map((x) => String(x || "").trim()).filter(Boolean);
+    if (!raw.length) return false;
+    return raw.every((t) => START_CAREER_CTA.test(t));
   }
 
   function careerPhase(player) {
@@ -693,85 +703,61 @@
     return null;
   }
 
-  /** Détail pos/nég/% pour chaque choix (données Engine > export > oracle > heuristique). */
+  /** Détail pos/nég + % Top mondial (récompense = carrière top mondial, pas réussite locale). */
   function choiceBreakdowns(prompt, choices, scenarios) {
     const c = cleanChoices(choices);
     if (c.length < 2) return [];
 
-    const liveEv = matchLiveEvent(prompt, c);
-    if (liveEv) {
-      return c.map((ch) => {
+    function pctLabel(pct, approx) {
+      if (pct == null || !isFinite(pct)) {
+        return approx ? 'Top mondial ~?% (estimé)' : 'Top mondial ~?%';
+      }
+      const n = Math.max(0, Math.min(100, Math.round(pct)));
+      return (approx ? 'Top mondial ~' : 'Top mondial ') + n + '%';
+    }
+
+    function attachFx(prompt, choices, ch, tags) {
+      let pos = tags.pos;
+      let neg = tags.neg;
+      const staticEv = matchStaticEvent(prompt, choices);
+      if (staticEv) {
+        const mapped = mapOptionDetail(staticEv.options || [], ch);
+        if (mapped) {
+          const sum = mapped.opt.summary
+            ? mapped.opt.summary
+            : summarizeLiveOption(mapped.opt);
+          if (sum.pos && sum.pos.length) pos = sum.pos;
+          if (sum.neg && sum.neg.length) neg = sum.neg;
+        }
+        return { pos, neg };
+      }
+      const liveEv = matchLiveEvent(prompt, choices);
+      if (liveEv) {
         let bestOpt = null;
         let bestS = -1;
         for (const o of liveEv.options || []) {
-          const label = String(o.label || o.text || "").trim();
+          const label = String(o.label || o.text || '').trim();
           const s = choiceSim(label, ch);
           if (s > bestS) {
             bestS = s;
             bestOpt = o;
           }
         }
-        if (!bestOpt || bestS < 0.2) {
-          const tags = heuristicConsequenceTags(ch);
-          return {
-            choice: ch,
-            pos: tags.pos,
-            neg: tags.neg,
-            success: null,
-            approx: true,
-            source: "estimé",
-            labelPct: "Réussite ~?% (estimé)",
-          };
+        if (bestOpt && bestS >= 0.2) {
+          const sum = summarizeLiveOption(bestOpt);
+          if (sum.pos && sum.pos.length) pos = sum.pos;
+          if (sum.neg && sum.neg.length) neg = sum.neg;
         }
-        const sum = summarizeLiveOption(bestOpt);
-        return {
-          choice: ch,
-          pos: sum.pos,
-          neg: sum.neg,
-          success: sum.success,
-          approx: false,
-          source: "engine",
-          labelPct: "Réussite " + sum.success + "%",
-        };
-      });
-    }
-
-    const staticEv = matchStaticEvent(prompt, c);
-    if (staticEv) {
-      return c.map((ch) => {
-        const mapped = mapOptionDetail(staticEv.options || [], ch);
-        if (!mapped) {
-          const tags = heuristicConsequenceTags(ch);
-          return {
-            choice: ch,
-            pos: tags.pos,
-            neg: tags.neg,
-            success: null,
-            approx: true,
-            source: "estimé",
-            labelPct: "Réussite ~?% (estimé)",
-          };
-        }
-        const o = mapped.opt;
-        const sum = o.summary
-          ? { success: o.summary.success, pos: o.summary.pos, neg: o.summary.neg }
-          : summarizeLiveOption(o);
-        return {
-          choice: ch,
-          pos: sum.pos || [],
-          neg: sum.neg || [],
-          success: sum.success,
-          approx: false,
-          source: "outcomes",
-          labelPct: "Réussite " + sum.success + "%",
-        };
-      });
+      }
+      return { pos, neg };
     }
 
     const row = matchScenarioRow(prompt, c, scenarios);
     if (row) {
+      const rates = row.top_mondial_pct || null;
       const scores = row.raw_scores || row.qualities;
       const srcChoices = row.choices || [];
+      const useTopPct = Array.isArray(rates) && rates.length === srcChoices.length;
       return c.map((ch) => {
         let bj = -1;
         let bs = -1;
@@ -783,45 +769,72 @@
           }
         });
         const tags = heuristicConsequenceTags(ch);
-        let success = null;
-        if (bj >= 0 && bs >= 0.2 && scores && scores[bj] != null) {
-          const q = row.qualities && row.qualities[bj] != null ? Number(row.qualities[bj]) : null;
-          if (q != null) success = Math.max(15, Math.min(95, Math.round(q)));
-          else {
-            const vals = scores.map(Number);
-            const lo = Math.min(...vals);
-            const hi = Math.max(...vals);
-            const t = (Number(scores[bj]) - lo) / (hi - lo + 1e-9);
-            success = Math.round(25 + 60 * t);
+        const fx = attachFx(prompt, c, ch, tags);
+        let pct = null;
+        if (bj >= 0 && bs >= 0.2) {
+          if (useTopPct && rates[bj] != null) pct = Number(rates[bj]);
+          else if (scores && scores[bj] != null) {
+            const v = Number(scores[bj]);
+            // New labels store top-world % in raw_scores (0-100). Old labels may be career scores.
+            pct = v <= 100 ? v : Math.min(95, Math.round(100 * (v - Math.min(...scores.map(Number))) / (Math.max(...scores.map(Number)) - Math.min(...scores.map(Number)) + 1e-9)));
           }
         }
         return {
           choice: ch,
-          pos: tags.pos,
-          neg: tags.neg,
-          success,
-          approx: true,
-          source: "oracle",
-          labelPct: success != null ? "Réussite ~" + success + "%" : "Réussite ~?% (estimé)",
+          pos: fx.pos,
+          neg: fx.neg,
+          success: pct,
+          approx: !useTopPct,
+          source: 'top_mondial',
+          labelPct: pctLabel(pct, !useTopPct || bj < 0 || bs < 0.2),
         };
       });
     }
 
-    const hs = c.map((ch) => scoreChoice(ch, prompt, null));
-    const lo = Math.min(...hs);
-    const hi = Math.max(...hs);
-    return c.map((ch, i) => {
+    const liveEv = matchLiveEvent(prompt, c);
+    if (liveEv) {
+      return c.map((ch) => {
+        const tags = heuristicConsequenceTags(ch);
+        const fx = attachFx(prompt, c, ch, tags);
+        return {
+          choice: ch,
+          pos: fx.pos,
+          neg: fx.neg,
+          success: null,
+          approx: true,
+          source: 'engine_fx_only',
+          labelPct: 'Top mondial ~?% (pas de trajectoire)',
+        };
+      });
+    }
+
+    const staticEv = matchStaticEvent(prompt, c);
+    if (staticEv) {
+      return c.map((ch) => {
+        const tags = heuristicConsequenceTags(ch);
+        const fx = attachFx(prompt, c, ch, tags);
+        return {
+          choice: ch,
+          pos: fx.pos,
+          neg: fx.neg,
+          success: null,
+          approx: true,
+          source: 'outcomes_fx_only',
+          labelPct: 'Top mondial ~?% (pas de trajectoire)',
+        };
+      });
+    }
+
+    return c.map((ch) => {
       const tags = heuristicConsequenceTags(ch);
-      const t = (hs[i] - lo) / (hi - lo + 1e-9);
-      const success = Math.round(30 + 50 * t);
       return {
         choice: ch,
         pos: tags.pos,
         neg: tags.neg,
-        success,
+        success: null,
         approx: true,
-        source: "estimé",
-        labelPct: "Réussite ~" + success + "% (estimé)",
+        source: 'estimé',
+        labelPct: 'Top mondial ~?% (estimé)',
       };
     });
   }
@@ -1207,8 +1220,14 @@
   }
 
   function advise(prompt, choices, scenarios, player) {
+    if (isStartCareerOnly(choices)) {
+      return { pick: "", reason: "Démarre la carrière", choices: [], breakdowns: [] };
+    }
     const c = cleanChoices(choices);
     if (!c.length) return { pick: "", reason: "Aucun choix détecté", choices: [], breakdowns: [] };
+    if (c.length < 2) {
+      return { pick: "", reason: "En attente d’un dilemme…", choices: c, breakdowns: [] };
+    }
 
     const hard = playerHardOverride(prompt, c, player);
     if (hard) {

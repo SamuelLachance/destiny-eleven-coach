@@ -1,0 +1,74 @@
+{
+  "reward": "ballon>=1 AND computeCareerScore>=240",
+  "n_careers": 5000,
+  "top_hits_in_sample": 258,
+  "sample_top_rate": 0.0516,
+  "aggregate": {
+    "labeled": 67,
+    "kept_prev": 110,
+    "flips": 6
+  },
+  "before": {
+    "random": {
+      "n": 100,
+      "topRate": 0.04,
+      "topN": 4,
+      "mean": 156.91,
+      "p90": 200,
+      "meanEvents": 35.4
+    },
+    "prev": {
+      "n": 100,
+      "topRate": 0.14,
+      "topN": 14,
+      "mean": 194.68,
+      "p90": 261,
+      "meanEvents": 35.41
+    },
+    "always0": {
+      "n": 100,
+      "topRate": 0.09,
+      "topN": 9,
+      "mean": 189.72,
+      "p90": 238,
+      "meanEvents": 35.59
+    }
+  },
+  "after": {
+    "random": {
+      "n": 150,
+      "topRate": 0.03333333333333333,
+      "topN": 5,
+      "mean": 163.26666666666668,
+      "p90": 214,
+      "meanEvents": 35.473333333333336
+    },
+    "prev": {
+      "n": 150,
+      "topRate": 0.16666666666666666,
+      "topN": 25,
+      "mean": 196.18,
+      "p90": 261,
+      "meanEvents": 35.233333333333334
+    },
+    "top_mondial": {
+      "n": 150,
+      "topRate": 0.12,
+      "topN": 18,
+      "mean": 195.10666666666665,
+      "p90": 252,
+      "meanEvents": 35.233333333333334
+    },
+    "always0": {
+      "n": 150,
+      "topRate": 0.14,
+      "topN": 21,
+      "mean": 191.71333333333334,
+      "p90": 247,
+      "meanEvents": 35.28
+    }
+  },
+  "shipped": "prev",
+  "shipped_top_rate": 0.16666666666666666,
+  "elapsed_sec": 105.0
+}
