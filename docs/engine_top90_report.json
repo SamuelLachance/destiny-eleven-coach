@@ -1,0 +1,746 @@
+{
+  "source": "real_Engine_playwright_pure_p90",
+  "objective": "maximize_P90_computeCareerScore",
+  "n_events": 177,
+  "n_roll": 40,
+  "max_seasons": 14,
+  "margin": 2.0,
+  "n_strong": 163,
+  "n_flips_vs_prev": 68,
+  "flips": [
+    {
+      "id": "ev_viral_video",
+      "old": "Poster la vidéo",
+      "new": "Refuser, le terrain d'abord",
+      "margin": 9.0,
+      "objs": [
+        112.0,
+        121.0
+      ]
+    },
+    {
+      "id": "ev_street_cage",
+      "old": "Cœur: Jouer le tournoi du quartier",
+      "new": "Faire l'impasse, place au match officiel",
+      "margin": 6.0,
+      "objs": [
+        115.0,
+        121.0
+      ]
+    },
+    {
+      "id": "ev_futsal_transition",
+      "old": "Vous plier au moule athlétique",
+      "new": "Garder votre patte futsal",
+      "margin": 19.0,
+      "objs": [
+        129.0,
+        110.0
+      ]
+    },
+    {
+      "id": "ev_growth_spurt",
+      "old": "Continuer à jouer, le corps suivra",
+      "new": "Suivre le protocole de renforcement à la lettre",
+      "margin": 3.0,
+      "objs": [
+        134.0,
+        131.0
+      ]
+    },
+    {
+      "id": "ev_first_contract",
+      "old": "Formateur: Partir en prêt pour jouer",
+      "new": "Signer pro et gravir les échelons ici",
+      "margin": 10.0,
+      "objs": [
+        126.0,
+        116.0
+      ]
+    },
+    {
+      "id": "ev_junk_food",
+      "old": "On ne change pas une équipe qui gagne",
+      "new": "Adopter une hygiène de pro",
+      "margin": 12.0,
+      "objs": [
+        127.0,
+        115.0
+      ]
+    },
+    {
+      "id": "ev_comeback_protocol",
+      "old": "Respecter le protocole jusqu'au bout",
+      "new": "Risqué: Forcer le retour pour les matchs décisifs",
+      "margin": 22.0,
+      "objs": [
+        139.0,
+        117.0
+      ]
+    },
+    {
+      "id": "ev_dressing_crisis",
+      "old": "Prendre la parole devant tout le groupe",
+      "new": "Rester loin des embrouilles",
+      "margin": 32.0,
+      "objs": [
+        111.0,
+        143.0
+      ]
+    },
+    {
+      "id": "ev_mil_maestro",
+      "old": "Demander un rôle plus cadré",
+      "new": "Endosser le costume de maestro",
+      "margin": 8.0,
+      "objs": [
+        139.0,
+        131.0
+      ]
+    },
+    {
+      "id": "ev_video_game_cover",
+      "old": "Décliner par superstition",
+      "new": "Accepter la couverture",
+      "margin": 19.0,
+      "objs": [
+        169.0,
+        150.0
+      ]
+    },
+    {
+      "id": "ev_wedding",
+      "old": "Une cérémonie secrète",
+      "new": "Le mariage du siècle",
+      "margin": 15.0,
+      "objs": [
+        153.0,
+        138.0
+      ]
+    },
+    {
+      "id": "ev_first_child",
+      "old": "Être à la maternité, quoi qu'il arrive",
+      "new": "Jouer le match, l'avion juste après",
+      "margin": 13.0,
+      "objs": [
+        133.0,
+        146.0
+      ]
+    },
+    {
+      "id": "ev_crypto_teammate",
+      "old": "YOLO: Investir gros",
+      "new": "Refuser poliment",
+      "margin": 32.0,
+      "objs": [
+        113.0,
+        145.0
+      ]
+    },
+    {
+      "id": "ev_docuseries",
+      "old": "Refuser : le vestiaire est sacré",
+      "new": "Ouvrir toutes les portes",
+      "margin": 12.0,
+      "objs": [
+        175.0,
+        163.0
+      ]
+    },
+    {
+      "id": "ev_burnout",
+      "old": "Consulter en secret et serrer les dents",
+      "new": "Courageux: En parler publiquement",
+      "margin": 23.0,
+      "objs": [
+        147.0,
+        124.0
+      ]
+    },
+    {
+      "id": "ev_wc_prep",
+      "old": "Tout donner sur les deux tableaux",
+      "new": "Se préserver pour le Mondial",
+      "margin": 27.0,
+      "objs": [
+        162.0,
+        135.0
+      ]
+    },
+    {
+      "id": "ev_desert_gold",
+      "old": "Refuser : la compétition avant tout",
+      "new": "Jackpot: Prendre l'or du désert",
+      "margin": 7.0,
+      "objs": [
+        177.0,
+        170.0
+      ]
+    },
+    {
+      "id": "ev_release_clause",
+      "old": "Rester l'année de la gagne",
+      "new": "Partir : la clause est la clause",
+      "margin": 31.0,
+      "objs": [
+        172.0,
+        141.0
+      ]
+    },
+    {
+      "id": "ev_mentor_role",
+      "old": "Devenir le mentor de la pépite",
+      "new": "Défendre votre place, point final",
+      "margin": 27.0,
+      "objs": [
+        129.0,
+        156.0
+      ]
+    },
+    {
+      "id": "ev_boardroom_path",
+      "old": "Joueur un jour, joueur toujours",
+      "new": "Découvrir les coulisses du pouvoir",
+      "margin": 30.0,
+      "objs": [
+        170.0,
+        140.0
+      ]
+    },
+    {
+      "id": "ev_coach_diploma",
+      "old": "Chaque chose en son temps",
+      "new": "Passer les diplômes en jouant",
+      "margin": 2.0,
+      "objs": [
+        151.0,
+        149.0
+      ]
+    },
+    {
+      "id": "ev_club_buyout",
+      "old": "Aider sans reprendre les rênes",
+      "new": "Racheter le club de vos débuts",
+      "margin": 2.0,
+      "objs": [
+        148.0,
+        146.0
+      ]
+    },
+    {
+      "id": "gen_training_camp",
+      "old": "S'infliger le stage",
+      "new": "Préférer une vraie coupure",
+      "margin": 26.0,
+      "objs": [
+        116.0,
+        142.0
+      ]
+    },
+    {
+      "id": "gen_new_signing",
+      "old": "Ignorer le signal",
+      "new": "En faire un moteur de motivation",
+      "margin": 12.0,
+      "objs": [
+        139.0,
+        127.0
+      ]
+    },
+    {
+      "id": "ev_academy_hazing",
+      "old": "Faire le show à fond",
+      "new": "Refuser ce cirque",
+      "margin": 23.0,
+      "objs": [
+        108.0,
+        131.0
+      ]
+    },
+    {
+      "id": "ev_first_love",
+      "old": "Vivre cette histoire à fond",
+      "new": "Le foot d'abord, le reste attendra",
+      "margin": 2.0,
+      "objs": [
+        112.0,
+        114.0
+      ]
+    },
+    {
+      "id": "ev_gaming_addiction",
+      "old": "Assumer : ça vous détend",
+      "new": "Instaurer un couvre-feu strict",
+      "margin": 6.0,
+      "objs": [
+        124.0,
+        118.0
+      ]
+    },
+    {
+      "id": "ev_crew_pressure",
+      "old": "Poser des limites claires",
+      "new": "On ne lâche pas ses frères",
+      "margin": 8.0,
+      "objs": [
+        117.0,
+        125.0
+      ]
+    },
+    {
+      "id": "ev_mental_coach",
+      "old": "Commencer le travail mental",
+      "new": "Gérer ça à l'ancienne",
+      "margin": 3.0,
+      "objs": [
+        140.0,
+        143.0
+      ]
+    },
+    {
+      "id": "ev_teammate_leak",
+      "old": "Le confronter devant le groupe",
+      "new": "Ne plus rien dire à personne",
+      "margin": 32.0,
+      "objs": [
+        111.0,
+        143.0
+      ]
+    },
+    {
+      "id": "ev_coach_son",
+      "old": "En faire un allié plutôt qu'un rival",
+      "new": "L'écraser par le niveau, sans un mot",
+      "margin": 18.0,
+      "objs": [
+        133.0,
+        115.0
+      ]
+    },
+    {
+      "id": "ev_ultras_invitation",
+      "old": "Garder une distance professionnelle",
+      "new": "Accepter l'invitation",
+      "margin": 7.0,
+      "objs": [
+        157.0,
+        150.0
+      ]
+    },
+    {
+      "id": "ev_knee_specialist",
+      "old": "Jouer avec, advienne que pourra",
+      "new": "Opérer maintenant",
+      "margin": 14.0,
+      "objs": [
+        135.0,
+        121.0
+      ]
+    },
+    {
+      "id": "ev_relegation_battle",
+      "old": "Porter l'équipe sur vos épaules",
+      "new": "Jouer votre partition, sobrement",
+      "margin": 5.0,
+      "objs": [
+        129.0,
+        134.0
+      ]
+    },
+    {
+      "id": "ev_giant_killing",
+      "old": "Jouer crânement votre chance",
+      "new": "Fermer le jeu et espérer les tirs au but",
+      "margin": 27.0,
+      "objs": [
+        115.0,
+        142.0
+      ]
+    },
+    {
+      "id": "ev_house_parents",
+      "old": "Choisir une maison raisonnable",
+      "new": "Acheter la villa, sans compter",
+      "margin": 6.0,
+      "objs": [
+        126.0,
+        120.0
+      ]
+    },
+    {
+      "id": "ev_friend_loan",
+      "old": "Refuser mais offrir votre réseau",
+      "new": "Prêter sans hésiter",
+      "margin": 17.0,
+      "objs": [
+        133.0,
+        116.0
+      ]
+    },
+    {
+      "id": "ev_captain_stripped",
+      "old": "Avaler la couleuvre et jouer pour l'équipe",
+      "new": "Frontal: Exiger des explications devant le groupe",
+      "margin": 18.0,
+      "objs": [
+        157.0,
+        175.0
+      ]
+    },
+    {
+      "id": "ev_viral_celebration",
+      "old": "En faire votre signature officielle",
+      "new": "Laisser le mème vivre sa vie",
+      "margin": 33.0,
+      "objs": [
+        141.0,
+        174.0
+      ]
+    },
+    {
+      "id": "ev_sick_fan",
+      "old": "Aller le voir sans caméras, avec un maillot dédicacé",
+      "new": "Lui dédier publiquement votre prochain but",
+      "margin": 5.0,
+      "objs": [
+        135.0,
+        140.0
+      ]
+    },
+    {
+      "id": "ev_sick_fan_gk",
+      "old": "Aller le voir sans caméras, avec vos gants du dernier match",
+      "new": "Lui promettre publiquement une cage inviolée",
+      "margin": 2.0,
+      "objs": [
+        144.0,
+        146.0
+      ]
+    },
+    {
+      "id": "ev_tactics_rift",
+      "old": "Risqué: Porter la parole des joueurs",
+      "new": "Défendre le coach publiquement",
+      "margin": 4.0,
+      "objs": [
+        144.0,
+        140.0
+      ]
+    },
+    {
+      "id": "ev_homecoming_finale",
+      "old": "Refuser : on ne revient jamais en arrière",
+      "new": "Cœur: Rentrer boucler la boucle",
+      "margin": 2.0,
+      "objs": [
+        151.0,
+        149.0
+      ]
+    },
+    {
+      "id": "ev_burglary",
+      "old": "Renforcer la maison et rester",
+      "new": "Déménager dans une résidence sécurisée",
+      "margin": 15.0,
+      "objs": [
+        139.0,
+        124.0
+      ]
+    },
+    {
+      "id": "ev_lookalike",
+      "old": "Envoyer les avocats",
+      "new": "En rire publiquement et l'inviter au stade",
+      "margin": 4.0,
+      "objs": [
+        166.0,
+        162.0
+      ]
+    },
+    {
+      "id": "ev_rival_same_club",
+      "old": "En faire votre moteur quotidien",
+      "new": "Exiger des garanties sur votre statut",
+      "margin": 22.0,
+      "objs": [
+        156.0,
+        178.0
+      ]
+    },
+    {
+      "id": "ev_rival_ballon_race",
+      "old": "Disparaître des médias, tout mettre dans le jeu",
+      "new": "Jouer le jeu médiatique à fond",
+      "margin": 5.0,
+      "objs": [
+        199.0,
+        194.0
+      ]
+    },
+    {
+      "id": "ev_rival_jubilee",
+      "old": "Décliner : la rivalité ne se met pas en scène",
+      "new": "Accepter et jouer le jubilé à fond",
+      "margin": 11.0,
+      "objs": [
+        195.0,
+        184.0
+      ]
+    },
+    {
+      "id": "ev_traitor_return",
+      "old": "Jouer sobrement, sans célébrer",
+      "new": "Provocateur: Répondre sur le terrain et célébrer face au virage",
+      "margin": 20.0,
+      "objs": [
+        139.0,
+        119.0
+      ]
+    },
+    {
+      "id": "ev_late_degree",
+      "old": "Le terrain d'abord, toujours",
+      "new": "S'inscrire au master",
+      "margin": 30.0,
+      "objs": [
+        170.0,
+        140.0
+      ]
+    },
+    {
+      "id": "ev_gk_understudy",
+      "old": "Honnête: Avouer que vous ne vous sentez pas prêt",
+      "new": "Y aller, sans trembler",
+      "margin": 15.0,
+      "objs": [
+        147.0,
+        132.0
+      ]
+    },
+    {
+      "id": "ev_gk_blunder",
+      "old": "Couper les réseaux et bosser en silence",
+      "new": "Assumer face caméra le soir même",
+      "margin": 10.0,
+      "objs": [
+        132.0,
+        122.0
+      ]
+    },
+    {
+      "id": "ev_gk_captain",
+      "old": "Collectif: Suggérer un joueur de champ",
+      "new": "Prendre le brassard",
+      "margin": 19.0,
+      "objs": [
+        173.0,
+        154.0
+      ]
+    },
+    {
+      "id": "ev_def_own_goal",
+      "old": "Revanche: Répondre par un match parfait",
+      "new": "Prendre le micro en zone mixte",
+      "margin": 17.0,
+      "objs": [
+        132.0,
+        115.0
+      ]
+    },
+    {
+      "id": "ev_penalty_gift",
+      "old": "Héritage: Lui poser le ballon sur le point",
+      "new": "Le record d'abord, la pédagogie ensuite",
+      "margin": 11.0,
+      "objs": [
+        161.0,
+        172.0
+      ]
+    },
+    {
+      "id": "ev_academy_invest",
+      "old": "Un chèque discret, sans le nom",
+      "new": "Héritage: Financer l'académie",
+      "margin": 19.0,
+      "objs": [
+        155.0,
+        136.0
+      ]
+    },
+    {
+      "id": "ev_journalist_pact",
+      "old": "Sourire sans promettre",
+      "new": "Promettre, poignée de main",
+      "margin": 9.0,
+      "objs": [
+        113.0,
+        104.0
+      ]
+    },
+    {
+      "id": "ev_growth_spurt",
+      "old": "Continuer à jouer, le corps suivra",
+      "new": "Suivre le protocole de renforcement à la lettre",
+      "margin": 9.0,
+      "objs": [
+        118.0,
+        109.0
+      ]
+    },
+    {
+      "id": "ev_first_salary",
+      "old": "Envoyer l'essentiel à la famille",
+      "new": "Jeune: S'offrir LE bolide vu en vitrine",
+      "margin": 4.0,
+      "objs": [
+        117.0,
+        121.0
+      ]
+    },
+    {
+      "id": "ev_farewell_rumor",
+      "old": "Démentir dans l'heure, sèchement",
+      "new": "Joueur: Laisser planer le doute",
+      "margin": 14.0,
+      "objs": [
+        160.0,
+        174.0
+      ]
+    },
+    {
+      "id": "ev_captain_pass",
+      "old": "Préparer votre successeur en secret",
+      "new": "Le brassard se mérite, il ne se donne pas",
+      "margin": 4.0,
+      "objs": [
+        146.0,
+        150.0
+      ]
+    },
+    {
+      "id": "ev_gk_late_peak",
+      "old": "S'appuyer sur les réflexes, encore et toujours",
+      "new": "Réinventer votre poste : placement, anticipation, commandement",
+      "margin": 28.0,
+      "objs": [
+        174.0,
+        146.0
+      ]
+    },
+    {
+      "id": "ev_next_gen_advice",
+      "old": "Donner trois conseils et une mise en garde",
+      "new": "Prendre le dossier en main personnellement",
+      "margin": 13.0,
+      "objs": [
+        177.0,
+        164.0
+      ]
+    },
+    {
+      "id": "ev_story_maestro_roulette",
+      "old": "Patience: La garder pour les grands soirs",
+      "new": "En faire votre signature",
+      "margin": 20.0,
+      "objs": [
+        136.0,
+        116.0
+      ]
+    },
+    {
+      "id": "ev_story_maestro_volley",
+      "old": "Légendaire: La volée, pied gauche, sans réfléchir",
+      "new": "Raison: Contrôler et remiser proprement",
+      "margin": 19.0,
+      "objs": [
+        129.0,
+        148.0
+      ]
+    },
+    {
+      "id": "ev_twilight_mentor",
+      "old": "Rester concentré sur soi",
+      "new": "Le prendre sous votre aile",
+      "margin": 11.0,
+      "objs": [
+        149.0,
+        138.0
+      ]
+    },
+    {
+      "id": "ev_twilight_bench",
+      "old": "Orgueil: Refuser : le terrain se mérite",
+      "new": "Sagesse: Accepter un rôle de guide",
+      "margin": 21.0,
+      "objs": [
+        147.0,
+        126.0
+      ]
+    },
+    {
+      "id": "ev_twilight_lastfuel",
+      "old": "Doser, encore et toujours",
+      "new": "Tout laisser sur la pelouse",
+      "margin": 4.0,
+      "objs": [
+        150.0,
+        146.0
+      ]
+    }
+  ],
+  "bakeoff_before": {
+    "random": {
+      "n": 100,
+      "mean": 103.82,
+      "p50": 98,
+      "p90": 123,
+      "p95": 148,
+      "max": 194
+    },
+    "netImpact": {
+      "n": 100,
+      "mean": 104.45,
+      "p50": 98,
+      "p90": 124,
+      "p95": 152,
+      "max": 194
+    },
+    "oracle": {
+      "n": 100,
+      "mean": 103.82,
+      "p50": 98,
+      "p90": 123,
+      "p95": 148,
+      "max": 194
+    }
+  },
+  "bakeoff_after": {
+    "random": {
+      "n": 100,
+      "mean": 103.82,
+      "p50": 98,
+      "p90": 123,
+      "p95": 148,
+      "max": 194
+    },
+    "netImpact": {
+      "n": 100,
+      "mean": 104.45,
+      "p50": 98,
+      "p90": 124,
+      "p95": 152,
+      "max": 194
+    },
+    "oracle": {
+      "n": 100,
+      "mean": 103.82,
+      "p50": 98,
+      "p90": 123,
+      "p95": 148,
+      "max": 194
+    }
+  },
+  "n_careers_bakeoff": 100,
+  "elapsed_sec": 32.3
+}
