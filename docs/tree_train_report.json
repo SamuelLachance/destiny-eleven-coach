@@ -27,27 +27,54 @@
   "blend_w_heuristic": 1.0,
   "chance": 0.4919507575757576,
   "n_dilemmas": 176,
-  "note": "Reward ONLY top-world careers (Ballon d'Or + score>=240). UI shows Top mondial % = empirical P(top|choice) from Engine MC, not local outcome success.",
+  "note": "Maximize total trophies (personal OR team). raw_scores = P90(trophyScore|choice) from Engine MC. UI shows Upside trophées (P90), not Ballon-only / Top mondial %.",
   "leak_checks": {
     "group_kfold_event": true,
     "retrieval_bank_train_fold_only_for_cv": true,
     "eval_against_career_best_i": true,
     "metrics_holdout_only": true
   },
-  "label_goal": "top_mondial_binary_reward",
+  "label_goal": "trophy_max",
   "engine_career_p90": {
     "random": 188,
     "elite": 207,
     "traj": 257,
     "traj_cem": 244
   },
-  "n_careers_sampled": 4000,
-  "decision_credits": 141458,
-  "reward": "ballon>=1 AND score>=240",
+  "n_careers_sampled": 12000,
+  "decision_credits": 424815,
+  "reward": "trophyScore=ballon*2+goldenBoot+league+cup+continental+worldCup",
   "engine_top_mondial": {
     "random": 0.03333333333333333,
     "prev": 0.16666666666666666,
     "top_mondial": 0.12,
     "always0": 0.14
+  },
+  "engine_trophy": {
+    "random": {
+      "meanTrophy": 3.511111111111111,
+      "p90Trophy": 8,
+      "p90Score": 214
+    },
+    "prev": {
+      "meanTrophy": 5.705555555555556,
+      "p90Trophy": 12,
+      "p90Score": 252
+    },
+    "trophy": {
+      "meanTrophy": 5.911111111111111,
+      "p90Trophy": 13,
+      "p90Score": 256
+    },
+    "always0": {
+      "meanTrophy": 4.705555555555556,
+      "p90Trophy": 12,
+      "p90Score": 251
+    },
+    "netImpact": {
+      "meanTrophy": 2.466666666666667,
+      "p90Trophy": 6,
+      "p90Score": 204
+    }
   }
 }

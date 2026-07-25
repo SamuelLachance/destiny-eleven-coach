@@ -140,7 +140,7 @@
         return (
           `<div class="d11-choice${isPick ? " d11-choice-pick" : ""}">` +
           `<div class="d11-choice-title">${isPick ? "★ " : ""}${esc(b.choice)}</div>` +
-          `<div class="d11-choice-pct">${esc(b.labelPct || "Top mondial ~?%")}</div>` +
+          `<div class="d11-choice-pct">${esc(b.labelPct || "Trophées (P90) ~?")}</div>` +
           `<div class="d11-choice-cols">` +
           `<div><div class="d11-col-h d11-pos">Points positifs</div><ul>${pos || "<li>—</li>"}</ul></div>` +
           `<div><div class="d11-col-h d11-neg">Risques</div><ul>${neg || "<li>—</li>"}</ul></div>` +

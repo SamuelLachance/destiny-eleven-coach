@@ -1,0 +1,111 @@
+{
+  "reward": "trophyScore = ballon*2 + goldenBoot + league + cup + continental + worldCup (+other)",
+  "label_goal": "trophy_max",
+  "ballon_weight": 2.0,
+  "n_careers": 12000,
+  "decision_credits": 424815,
+  "mean_trophy_in_sample": 3.3621666666666665,
+  "aggregate": {
+    "labeled": 61,
+    "kept_prev": 116,
+    "flips": 14
+  },
+  "before": {
+    "random": {
+      "n": 120,
+      "meanScore": 157.30833333333334,
+      "p90Score": 200,
+      "meanTrophy": 2.7666666666666666,
+      "p50Trophy": 1,
+      "p90Trophy": 7,
+      "maxTrophy": 17,
+      "meanEvents": 35.4
+    },
+    "prev": {
+      "n": 120,
+      "meanScore": 193.875,
+      "p90Score": 261,
+      "meanTrophy": 5.591666666666667,
+      "p50Trophy": 4,
+      "p90Trophy": 13,
+      "maxTrophy": 20,
+      "meanEvents": 35.30833333333333
+    },
+    "always0": {
+      "n": 120,
+      "meanScore": 187.025,
+      "p90Score": 237,
+      "meanTrophy": 4.216666666666667,
+      "p50Trophy": 3,
+      "p90Trophy": 10,
+      "maxTrophy": 18,
+      "meanEvents": 35.516666666666666
+    },
+    "netImpact": {
+      "n": 120,
+      "meanScore": 167.35,
+      "p90Score": 194,
+      "meanTrophy": 2.225,
+      "p50Trophy": 1,
+      "p90Trophy": 5,
+      "maxTrophy": 15,
+      "meanEvents": 34.96666666666667
+    }
+  },
+  "after": {
+    "random": {
+      "n": 180,
+      "meanScore": 161.8388888888889,
+      "p90Score": 214,
+      "meanTrophy": 3.511111111111111,
+      "p50Trophy": 2,
+      "p90Trophy": 8,
+      "maxTrophy": 18,
+      "meanEvents": 35.46111111111111
+    },
+    "prev": {
+      "n": 180,
+      "meanScore": 197.89444444444445,
+      "p90Score": 252,
+      "meanTrophy": 5.705555555555556,
+      "p50Trophy": 5,
+      "p90Trophy": 12,
+      "maxTrophy": 20,
+      "meanEvents": 35.227777777777774
+    },
+    "trophy": {
+      "n": 180,
+      "meanScore": 199.04444444444445,
+      "p90Score": 256,
+      "meanTrophy": 5.911111111111111,
+      "p50Trophy": 5,
+      "p90Trophy": 13,
+      "maxTrophy": 22,
+      "meanEvents": 35.34444444444444
+    },
+    "always0": {
+      "n": 180,
+      "meanScore": 192.24444444444444,
+      "p90Score": 251,
+      "meanTrophy": 4.705555555555556,
+      "p50Trophy": 3,
+      "p90Trophy": 12,
+      "maxTrophy": 18,
+      "meanEvents": 35.25555555555555
+    },
+    "netImpact": {
+      "n": 180,
+      "meanScore": 169.3111111111111,
+      "p90Score": 204,
+      "meanTrophy": 2.466666666666667,
+      "p50Trophy": 2,
+      "p90Trophy": 6,
+      "maxTrophy": 18,
+      "meanEvents": 35.12777777777778
+    }
+  },
+  "shipped": "trophy",
+  "shipped_p90_trophy": 13,
+  "shipped_mean_trophy": 5.911111111111111,
+  "elapsed_sec": 294.2
+}

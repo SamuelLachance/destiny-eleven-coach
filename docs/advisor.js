@@ -703,10 +703,23 @@
     return null;
   }
 
-  /** Détail pos/nég + % Top mondial (récompense = carrière top mondial, pas réussite locale). */
+  /** Détail pos/nég + upside trophées P90 (objectif = maximiser trophées perso/équipe). */
   function choiceBreakdowns(prompt, choices, scenarios) {
     const c = cleanChoices(choices);
     if (c.length < 2) return [];
+
+    function isTrophyGoal(row) {
+      const g = String((row && row.label_goal) || '');
+      return g.indexOf('trophy') >= 0 || Array.isArray(row && row.trophy_p90);
+    }
+
+    function trophyLabel(score, approx) {
+      if (score == null || !isFinite(score)) {
+        return approx ? 'Trophées (P90) ~? (estimé)' : 'Trophées (P90) ~?';
+      }
+      const n = Math.round(Number(score) * 10) / 10;
+      return (approx ? 'Upside trophées ~' : 'Trophées (P90) ~') + n;
+    }
 
     function pctLabel(pct, approx) {
       if (pct == null || !isFinite(pct)) {
@@ -754,10 +767,13 @@
 
     const row = matchScenarioRow(prompt, c, scenarios);
     if (row) {
+      const trophyMode = isTrophyGoal(row);
       const rates = row.top_mondial_pct || null;
+      const trophyScores = row.trophy_p90 || (trophyMode ? (row.raw_scores || null) : null);
       const scores = row.raw_scores || row.qualities;
       const srcChoices = row.choices || [];
-      const useTopPct = Array.isArray(rates) && rates.length === srcChoices.length;
+      const useTrophy = Array.isArray(trophyScores) && trophyScores.length === srcChoices.length;
+      const useTopPct = !useTrophy && Array.isArray(rates) && rates.length === srcChoices.length;
       return c.map((ch) => {
         let bj = -1;
         let bs = -1;
@@ -771,22 +787,30 @@
         const tags = heuristicConsequenceTags(ch);
         const fx = attachFx(prompt, c, ch, tags);
         let pct = null;
+        let tScore = null;
         if (bj >= 0 && bs >= 0.2) {
-          if (useTopPct && rates[bj] != null) pct = Number(rates[bj]);
+          if (useTrophy && trophyScores[bj] != null) tScore = Number(trophyScores[bj]);
+          else if (useTopPct && rates[bj] != null) pct = Number(rates[bj]);
           else if (scores && scores[bj] != null) {
             const v = Number(scores[bj]);
-            // New labels store top-world % in raw_scores (0-100). Old labels may be career scores.
-            pct = v <= 100 ? v : Math.min(95, Math.round(100 * (v - Math.min(...scores.map(Number))) / (Math.max(...scores.map(Number)) - Math.min(...scores.map(Number)) + 1e-9)));
+            if (trophyMode) tScore = v;
+            else {
+              // Legacy: top-world % in raw_scores (0-100), or career scores.
+              pct = v <= 100 ? v : Math.min(95, Math.round(100 * (v - Math.min(...scores.map(Number))) / (Math.max(...scores.map(Number)) - Math.min(...scores.map(Number)) + 1e-9)));
+            }
           }
         }
+        const approx = useTrophy ? (bj < 0 || bs < 0.2) : (!useTopPct || bj < 0 || bs < 0.2);
         return {
           choice: ch,
           pos: fx.pos,
           neg: fx.neg,
-          success: pct,
-          approx: !useTopPct,
-          source: 'top_mondial',
-          labelPct: pctLabel(pct, !useTopPct || bj < 0 || bs < 0.2),
+          success: useTrophy ? tScore : pct,
+          approx,
+          source: useTrophy ? 'trophy_max' : 'top_mondial',
+          labelPct: useTrophy || trophyMode
+            ? trophyLabel(tScore, approx)
+            : pctLabel(pct, approx),
         };
       });
     }
@@ -803,7 +827,7 @@
           success: null,
           approx: true,
           source: 'engine_fx_only',
-          labelPct: 'Top mondial ~?% (pas de trajectoire)',
+          labelPct: 'Trophées (P90) ~? (pas de trajectoire)',
         };
       });
     }
@@ -820,7 +844,7 @@
           success: null,
           approx: true,
           source: 'outcomes_fx_only',
-          labelPct: 'Top mondial ~?% (pas de trajectoire)',
+          labelPct: 'Trophées (P90) ~? (pas de trajectoire)',
         };
       });
     }
@@ -834,7 +858,7 @@
         success: null,
         approx: true,
         source: 'estimé',
-        labelPct: 'Top mondial ~?% (estimé)',
+        labelPct: 'Trophées (P90) ~? (estimé)',
       };
     });
   }
