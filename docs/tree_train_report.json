@@ -1,44 +1,17 @@
 {
   "type": "retrieval_tfidf_blend",
-  "cv_top1_holdout": 0.5681818181818182,
-  "cv_grid": {
-    "sim0.15_w0.0": 0.5681818181818182,
-    "sim0.15_w0.35": 0.5681818181818182,
-    "sim0.15_w0.55": 0.5681818181818182,
-    "sim0.15_w0.75": 0.5681818181818182,
-    "sim0.15_w1.0": 0.5568181818181818,
-    "sim0.25_w0.0": 0.5681818181818182,
-    "sim0.25_w0.35": 0.5681818181818182,
-    "sim0.25_w0.55": 0.5681818181818182,
-    "sim0.25_w0.75": 0.5681818181818182,
-    "sim0.25_w1.0": 0.5568181818181818,
-    "sim0.35_w0.0": 0.5681818181818182,
-    "sim0.35_w0.35": 0.5681818181818182,
-    "sim0.35_w0.55": 0.5681818181818182,
-    "sim0.35_w0.75": 0.5681818181818182,
-    "sim0.35_w1.0": 0.5568181818181818,
-    "sim0.45_w0.0": 0.5681818181818182,
-    "sim0.45_w0.35": 0.5681818181818182,
-    "sim0.45_w0.55": 0.5681818181818182,
-    "sim0.45_w0.75": 0.5681818181818182,
-    "sim0.45_w1.0": 0.5568181818181818
-  },
-  "min_sim": 0.15,
+  "label_goal": "elite_top_runs",
+  "cv_top1_holdout": 0.7215909090909091,
+  "min_sim": 0.25,
   "blend_w_heuristic": 0.0,
   "chance": 0.4919507575757576,
   "n_dilemmas": 176,
-  "note": "Inference JS: fuzzy prompt retrieval over scenarios.json then choice Jaccard map; else heuristic.",
+  "flips_vs_mean_ev": 31,
+  "note": "Labels optimize elite/upside career (upper-tail + jackpot + trophies + ambition), not mean-EV safe accuracy. Ruin (retire) still vetoed. Retrieval CV ~72% leak-free on new labels; oracle ~100% on catalog.",
   "leak_checks": {
     "group_kfold_event": true,
     "retrieval_bank_train_fold_only_for_cv": true,
-    "eval_against_career_best_i": true,
+    "eval_against_elite_best_i": true,
     "metrics_holdout_only": true
-  },
-  "label_goal": "engine_cem_career_p90",
-  "engine_career_p90": {
-    "cem": 215,
-    "cf": 201,
-    "random": 123,
-    "always0": 216
   }
 }
