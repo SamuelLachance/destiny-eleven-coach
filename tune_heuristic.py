@@ -24,11 +24,11 @@ def _norm(s: str) -> str:
     return "".join(ch for ch in s if not unicodedata.combining(ch))
 
 
-# Each rule: (name, choice_pat, prompt_pat|None, default_weight)
+# Each rule: (name, choice_pat, prompt_pat|None, default_weight) — Engine CF aligned
 RULES = [
-    ("good_base", r"collectif|travailler|soigner|repos|verif|licence|prudent|discret|ecout|rentrer|hygiene|garant|diplomat|excus|focus|danse|repousser|encore|titulaire|minutes", None, 5.0),
-    ("bad_base", r"panenka|clash|insult|engueul|soiree|boite|alcool|fete|tiktok|buzz|forcer|dopage|casino|legendaire|annoncer la retraite|prendre votre retraite|banc", None, -6.0),
-    ("inj_good", r"repos|soigner|medical|inapte|suivre|repousser", r"bless|douleur|medical|kine|radios", 6.0),
+    ("good_base", r"collectif|travailler|soigner|repos|verif|licence|prudent|discret|ecout|rentrer|hygiene|garant|diplomat|excus|focus|danse|repousser|encore|titulaire|minutes|apprendre", None, 5.0),
+    ("bad_base", r"panenka|clash|insult|engueul|soiree|boite|alcool|fete|tiktok|buzz|forcer|dopage|casino|legendaire|annoncer la retraite|prendre votre retraite", None, -6.0),
+    ("inj_good", r"repos|soigner|medical|inapte|suivre|repousser|protocole", r"bless|douleur|medical|kine|radios", 6.0),
     ("inj_bad", r"forcer|cacher|anti-douleur|annoncer la retraite", r"bless|douleur|medical|kine|radios", -6.0),
     ("agent_good", r"verif|licence|federation|refuser|lire", r"agent|frais|sponsor", 8.0),
     ("agent_bad", r"^payer|donner|signer pour", r"agent|frais|sponsor", -8.0),
@@ -38,12 +38,14 @@ RULES = [
     ("ret_bad", r"annoncer la retraite|prendre votre retraite|tete haute", r"retrait|radios|reverence", -12.0),
     ("night_good", r"rentrer|refuser|dormir", r"soir|boite|fete|nuit", 5.0),
     ("night_bad", r"accepter|profiter|verre", r"soir|boite|fete|nuit", -5.0),
-    ("coach_good", r"ecout|travaill|respect|discut", r"coach|staff|entrain", 5.0),
+    ("coach_good", r"ecout|travaill|respect|discut|ombre|apprendre", r"coach|staff|entrain|banc|ombre", 5.0),
     ("coach_bad", r"clash|insult|engueul", r"coach|staff|entrain", -6.0),
     ("press_good", r"discret|equipe|collectif|diplomat|excus", r"presse|journal|interview|media|reseaux", 4.0),
     ("press_bad", r"clash|attaquer|provoc|polemique|insult", r"presse|journal|interview|media|reseaux", -5.0),
     ("playtime_go", r"d1|d2|indemnite|partir|accepter|offre|titulaire|pret", r"temps de jeu|banc|famelique|remplacant", 5.0),
     ("playtime_stay", r"^rester\b", r"temps de jeu|banc|famelique|remplacant", -4.0),
+    ("school_good", r"etudes|etude|parallele|prudent", r"ecole|etudes|etude|amateur|tout miser", 4.0),
+    ("school_allin", r"tout miser", r"ecole|etudes|etude|amateur|tout miser", -1.0),
 ]
 
 
@@ -160,9 +162,11 @@ def main():
         },
     }
     OUT.write_text(json.dumps(bundle, ensure_ascii=False, indent=2), encoding="utf-8")
-    OUT_MODEL.write_text(json.dumps(bundle, ensure_ascii=False), encoding="utf-8")
-    OUT_REPORT.write_text(json.dumps(bundle, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Saved {OUT_MODEL}")
+    # Do NOT overwrite live retrieval tree_model.json — only the tuned heuristic artifact.
+    Path("docs/tuned_heuristic_report.json").write_text(
+        json.dumps(bundle, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"Saved {OUT} (tree_model.json left untouched)")
     for i, r in enumerate(RULES):
         print(f"  {r[0]:14s} {r[3]:+5.1f} -> {w[i]:+6.2f}")
 

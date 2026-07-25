@@ -132,6 +132,9 @@
     ensureUI();
     const status = document.getElementById("d11-coach-status");
     try {
+      if (!window.D11SaveCodec) {
+        await loadScript(BASE + "save_codec.js");
+      }
       if (!window.DestinyCoach) {
         await loadScript(BASE + "advisor.js");
       }
@@ -150,14 +153,37 @@
             status.textContent = "En attente d’un dilemme…";
             return;
           }
-          const fp = prompt + "||" + choices.join("||");
+          const player =
+            (window.D11SaveCodec && D11SaveCodec.readPlayerFromStorage && D11SaveCodec.readPlayerFromStorage()) ||
+            null;
+          const fp =
+            prompt +
+            "||" +
+            choices.join("||") +
+            "||" +
+            (player
+              ? [player.age, player.ovr, player.injuryWeeks, player.form, player.moral, player.club].join(",")
+              : "");
           if (fp === last) return;
           last = fp;
-          const advice = DestinyCoach.advise(prompt, choices, scenarios);
+          const advice = DestinyCoach.advise(prompt, choices, scenarios, player);
           document.getElementById("d11-coach-pick").textContent = "→ " + (advice.pick || "—");
-          document.getElementById("d11-coach-reason").textContent = advice.reason || "";
+          let reason = advice.reason || "";
+          if (player) {
+            const bits = [
+              player.pos || "",
+              "OVR" + (player.ovr != null ? player.ovr : "?"),
+              "âge" + (player.age != null ? player.age : "?"),
+              player.club || "",
+            ].filter(Boolean);
+            if ((player.injuryWeeks || 0) > 0) bits.push("blessé×" + player.injuryWeeks);
+            reason = (reason ? reason + " · " : "") + bits.join(" · ");
+          }
+          document.getElementById("d11-coach-reason").textContent = reason;
           document.getElementById("d11-coach-prompt").textContent = prompt || "";
-          status.textContent = "Conseil à jour";
+          status.textContent = player
+            ? "Conseil à jour (save lu)"
+            : "Conseil à jour (pas de save)";
         } catch (e) {
           status.textContent = "Erreur lecture écran";
         }

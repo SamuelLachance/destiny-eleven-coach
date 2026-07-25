@@ -65,7 +65,79 @@
     return out;
   }
 
-  function scoreChoice(text, prompt) {
+  function careerPhase(player) {
+    if (global.D11SaveCodec && global.D11SaveCodec.careerPhase) {
+      return global.D11SaveCodec.careerPhase(player);
+    }
+    if (!player) return "unknown";
+    const age = player.age || 20;
+    const ovr = player.ovr || 50;
+    const pot = player.potCap || 80;
+    if ((player.injuryWeeks || 0) > 0) return "injured";
+    if (age >= 34 || player.retiring) return "decline";
+    if (age <= 21 || (ovr < 68 && pot - ovr >= 12)) return "develop";
+    if (ovr >= 78 || (player.rep || 0) >= 55) return "peak";
+    return "prime";
+  }
+
+  /** Bias from live save — injury / phase / weak attrs (Engine-aligned). */
+  function playerBias(text, prompt, player) {
+    if (!player) return 0;
+    const cl = (text || "").toLowerCase();
+    const pl = (prompt || "").toLowerCase();
+    const phase = careerPhase(player);
+    let s = 0;
+    const inj = player.injuryWeeks || 0;
+    const form = player.form != null ? player.form : 50;
+    const moral = player.moral != null ? player.moral : 50;
+    const phys = player.p != null ? player.p : 50;
+    const age = player.age || 20;
+
+    if (inj > 0 || phase === "injured") {
+      if (/repos|soigner|arrêt|arret|médical|medical|médecin|medecin|inapte|suivre|protocole|kiné|kine/.test(cl)) s += 10;
+      if (/forcer|jouer quand|risquer|cacher|anti-douleur|cage|tournoi/.test(cl)) s -= 12;
+    }
+    if (form < 42) {
+      if (/repos|récup|recuper|hygiène|hygiene|dormir|rentrer|pause/.test(cl)) s += 4;
+      if (/soirée|soiree|boîte|boite|fête|fete|alcool/.test(cl)) s -= 6;
+    }
+    if (moral < 38) {
+      if (/collectif|équipe|equipe|écouter|ecouter|focus|travailler|discret/.test(cl)) s += 3;
+      if (/clash|insulter|engueuler|provoc/.test(cl)) s -= 5;
+    }
+    if (phys < 42) {
+      if (/repos|soigner|athlétique|athletique|physique|hygiène|hygiene/.test(cl)) s += 2;
+      if (/forcer|cage|tournoi|double charge|enchaîner|enchainer/.test(cl)) s -= 4;
+    }
+
+    if (phase === "develop") {
+      if (/travailler|entraî|entrain|minutes|titulaire|apprendre|ombre|prêt|pret|d2|progress/.test(cl)) s += 4;
+      if (/clash|fête|fete|buzz|tiktok|panenka|legendaire/.test(cl)) s -= 3;
+      // Engine: études / patience can beat all-in early
+      if (/études|etudes|parallèle|parallele|prudent/.test(cl) && /école|ecole|études|etudes|amateur|agent/.test(pl)) s += 3;
+      if (/tout miser|risqué|risque/.test(cl) && age <= 18) s -= 2;
+    }
+    if (phase === "peak") {
+      if (/ambitieux|prendre le match|votre compte|transfert|d1|clutch|assumer|ballon/.test(cl)) s += 3;
+      if (/ombre|patienter|rester fidèle|rester fidele/.test(cl)) s -= 2;
+    }
+    if (phase === "decline") {
+      if (/dernière danse|derniere danse|repousser|encore|battre|reconqu/.test(cl)) s += 8;
+      if (/annoncer la retraite|prendre votre retraite|tête haute|tete haute/.test(cl)) s -= 10;
+      if (/forcer|double|cage/.test(cl)) s -= 3;
+    }
+    if ((player.coachRel || 50) < 35) {
+      if (/écouter|ecouter|respect|discuter|travailler|excuses/.test(cl)) s += 4;
+      if (/engueuler|insulter|clash|poing|culotté|culotte/.test(cl)) s -= 4;
+    }
+    if ((player.rep || 0) >= 60 && /presse|média|media|réseaux|reseaux|interview/.test(pl)) {
+      if (/discret|collectif|équipe|equipe|diplomatique/.test(cl)) s += 3;
+      if (/clash|attaquer|buzz|poster/.test(cl)) s -= 3;
+    }
+    return s;
+  }
+
+  function scoreChoice(text, prompt, player) {
     const cl = (text || "").toLowerCase();
     const pl = (prompt || "").toLowerCase();
     let score = 0;
@@ -87,6 +159,9 @@
     if (/temps de jeu|banc|famélique|famelique|remplaçant|remplacant/.test(pl)) {
       if (/^\s*rester\b/.test(cl)) score -= 4;
       if (/d1|d2|indemnité|indemnite|k€|partir|accepter|offre|titulaire|prêt|pret/.test(cl)) score += 5;
+      // Engine: apprendre dans l'ombre sometimes beats "taper du poing"
+      if (/ombre|apprendre/.test(cl)) score += 2;
+      if (/poing|culotté|culotte/.test(cl)) score -= 1;
     }
     if (/agent|frais de dossier|sponsor douteux/.test(pl)) {
       if (/vérifier|verifier|licence|fédération|federation|refuser|lire/.test(cl)) score += 8;
@@ -112,11 +187,17 @@
       if (/dernière danse|derniere danse|repousser|encore|battre|reconqu|simple joueur/.test(cl)) score += 10;
       if (/annoncer la retraite|prendre votre retraite|tête haute|tete haute/.test(cl)) score -= 12;
     }
+    // Engine CF: early all-in foot often loses to études
+    if (/école|ecole|études|etudes|amateur|tout miser/.test(pl)) {
+      if (/études|etudes|parallèle|parallele|prudent/.test(cl)) score += 3;
+      if (/tout miser|risqué:\s*tout miser/.test(cl)) score -= 1;
+    }
     if (Math.abs(score) < 1.5) {
       if (/travailler|écoute|ecoute|discret|prudent|soigner|vérif|verif|focus|collectif/.test(cl)) score += 2.5;
       if (/clash|fête|fete|panenka|insulter|tiktok|buzz|forcer/.test(cl)) score -= 2.5;
     }
     if (text.length >= 10 && text.length <= 120) score += 0.4;
+    score += playerBias(text, prompt, player);
     return score;
   }
 
@@ -312,13 +393,13 @@
       .replace(/[\u0300-\u036f]/g, "");
   }
 
-  function treeHeuristic(prompt, choice) {
+  function treeHeuristic(prompt, choice, player) {
     const c = _n(choice);
     const p = _n(prompt);
     let s = 0;
-    if (/ambitieux|titulaire|minutes|garant|transfert|offre|d1|selection|requin|rivale|tout miser|prendre le match|votre compte|poing|danse|repousser|encore|clutch/.test(c)) s += 6;
-    if (/travailler|soigner|verif|licence|focus|collectif|ecout|hygiene/.test(c)) s += 4;
-    if (/annoncer la retraite|prendre votre retraite|dopage|casino|alcool|soiree|boite|fete|tiktok|buzz|banc/.test(c)) s -= 10;
+    if (/ambitieux|titulaire|minutes|garant|transfert|offre|d1|selection|requin|rivale|prendre le match|votre compte|danse|repousser|encore|clutch/.test(c)) s += 5;
+    if (/travailler|soigner|verif|licence|focus|collectif|ecout|hygiene|prudent|apprendre/.test(c)) s += 4;
+    if (/annoncer la retraite|prendre votre retraite|dopage|casino|alcool|soiree|boite|fete|tiktok|buzz/.test(c)) s -= 10;
     if (/panenka|legendaire|insult|engueul/.test(c)) s -= 3;
     if (/bless|douleur|medical|kine|radios/.test(p)) {
       if (/repos|soigner|medical|inapte|suivre|protocole|repousser/.test(c)) s += 5;
@@ -342,22 +423,27 @@
       if (/accepter|profiter|verre/.test(c)) s -= 6;
     }
     if (/coach|staff|entrain|banc|titulaire|ombre/.test(p)) {
-      if (/poing|titulaire|minutes|ambitieux|discut/.test(c)) s += 5;
+      // Engine: ombre/apprendre often > poing early career
+      if (/ombre|apprendre|patienter/.test(c)) s += 3;
+      if (/poing|culotte|ambitieux|discut|titulaire|minutes/.test(c)) s += 2;
       if (/ecout|travaill|respect/.test(c)) s += 2;
-      if (/ombre|patienter|silence/.test(c)) s -= 3;
     }
     if (/finale|derby|decisif|grand match/.test(p)) {
       if (/prendre le match|votre compte|assumer|clutch|force/.test(c)) s += 6;
       if (/jouer simple|passer|effacer/.test(c)) s -= 2;
     }
-    if (/club formateur|poach|structure|etudes|etude|football/.test(p)) {
-      if (/ambitieux|rivale|tout miser|football/.test(c)) s += 5;
-      if (/fidele|etudes|etude|parallele/.test(c)) s -= 2;
+    if (/club formateur|poach|structure|etudes|etude|football|ecole/.test(p)) {
+      // Engine CF: études parallel often beats all-in
+      if (/etudes|etude|parallele|prudent/.test(c)) s += 3;
+      if (/ambitieux|rivale/.test(c)) s += 4;
+      if (/tout miser/.test(c)) s += 1;
+      if (/fidele/.test(c)) s -= 1;
     }
+    s += playerBias(choice, prompt, player);
     return s;
   }
 
-  function baseOnlyFeatures(prompt, choice, keywords) {
+  function baseOnlyFeatures(prompt, choice, keywords, player) {
     const p = _n(prompt);
     const c = _n(choice);
     const feats = [];
@@ -371,22 +457,22 @@
     feats.push(/prudent|sagesse|ambitieux/.test(c) ? 1 : 0);
     feats.push(/soigner|repos|verif|travailler|ecout|discret|prudent|hygiene|rentrer|medical|garant|collectif|excus|focus|licence|danse|repousser|titulaire/.test(c) ? 1 : 0);
     feats.push(/panenka|clash|insult|soiree|boite|alcool|fete|tiktok|buzz|forcer|legendaire|retraite|banc/.test(c) ? 1 : 0);
-    const h = treeHeuristic(prompt, choice);
+    const h = treeHeuristic(prompt, choice, player);
     feats.push(h / 20);
     feats.push(h > 0 ? 1 : 0);
     feats.push(h < 0 ? 1 : 0);
     return feats;
   }
 
-  function dilemmaFeatureMatrix(prompt, choices, keywords) {
-    const hs = choices.map((ch) => treeHeuristic(prompt, ch));
+  function dilemmaFeatureMatrix(prompt, choices, keywords, player) {
+    const hs = choices.map((ch) => treeHeuristic(prompt, ch, player));
     const hMax = Math.max(...hs);
     const hMin = Math.min(...hs);
     const hMean = hs.reduce((a, b) => a + b, 0) / (hs.length || 1);
     const sorted = [...hs].sort((a, b) => a - b);
     const second = sorted.length > 1 ? sorted[sorted.length - 2] : sorted[0];
     return choices.map((ch, i) => {
-      const b = baseOnlyFeatures(prompt, ch, keywords);
+      const b = baseOnlyFeatures(prompt, ch, keywords, player);
       return b.concat([
         hs[i] / 20,
         (hs[i] - hMean) / 20,
@@ -441,9 +527,9 @@
     return x[0] || 0;
   }
 
-  function richNeuralRows(prompt, choices, keywords, hashDim, retrSim, retrMap) {
-    const baseM = dilemmaFeatureMatrix(prompt, choices, keywords);
-    const hs = choices.map((ch) => treeHeuristic(prompt, ch));
+  function richNeuralRows(prompt, choices, keywords, hashDim, retrSim, retrMap, player) {
+    const baseM = dilemmaFeatureMatrix(prompt, choices, keywords, player);
+    const hs = choices.map((ch) => treeHeuristic(prompt, ch, player));
     const hMean = hs.reduce((a, b) => a + b, 0) / (hs.length || 1);
     const hMax = Math.max(...hs);
     let bestRet = 0;
@@ -502,7 +588,7 @@
     return { sim: bestSim, mapped };
   }
 
-  function pickRanMlp(prompt, choices, scenarios) {
+  function pickRanMlp(prompt, choices, scenarios, player) {
     const kws = treeModel.keywords || [];
     const hashDim = treeModel.hash_dim || 48;
     const layers = treeModel.layers || [];
@@ -525,15 +611,15 @@
       if (Math.max(...mapped) > 0) return { pick: choices[bestI], score: mapped[bestI] };
     }
     if (lowMode === "heur") {
-      const hs = choices.map((ch) => treeHeuristic(prompt, ch));
+      const hs = choices.map((ch) => treeHeuristic(prompt, ch, player));
       let bestI = 0;
       for (let i = 1; i < hs.length; i++) if (hs[i] > hs[bestI]) bestI = i;
       return { pick: choices[bestI], score: hs[bestI] };
     }
 
-    const rows = richNeuralRows(prompt, choices, kws, hashDim, sim, mapped);
+    const rows = richNeuralRows(prompt, choices, kws, hashDim, sim, mapped, player);
     const ml = rows.map((f) => mlpForward(f, layers));
-    const hs = choices.map((ch) => treeHeuristic(prompt, ch));
+    const hs = choices.map((ch) => treeHeuristic(prompt, ch, player));
     const norm = (arr) => {
       const lo = Math.min(...arr);
       const hi = Math.max(...arr);
@@ -551,14 +637,14 @@
     return { pick: choices[bestI], score: scores[bestI] };
   }
 
-  function pickLogisticBlend(prompt, choices) {
+  function pickLogisticBlend(prompt, choices, player) {
     const kws = treeModel.keywords || [];
-    const M = dilemmaFeatureMatrix(prompt, choices, kws);
+    const M = dilemmaFeatureMatrix(prompt, choices, kws, player);
     const weights = treeModel.weights || [];
     const bias = treeModel.bias || 0;
     const wH = treeModel.blend_w_heuristic != null ? treeModel.blend_w_heuristic : 0.55;
     const ml = M.map((f) => logisticScore(f, weights, bias));
-    const hs = choices.map((ch) => treeHeuristic(prompt, ch));
+    const hs = choices.map((ch) => treeHeuristic(prompt, ch, player));
     const hMin = Math.min(...hs);
     const hMax = Math.max(...hs);
     const mMin = Math.min(...ml);
@@ -587,17 +673,17 @@
     return s / trees.length;
   }
 
-  function pickWithTree(prompt, choices, scenarios) {
+  function pickWithTree(prompt, choices, scenarios, player) {
     if (!treeModel) return null;
     const kws = treeModel.keywords || [];
     const type = treeModel.type || "";
 
     if ((type === "ran_mlp_retrieval" || type === "ran_mlp_gated" || type === "mlp_neural_ranker" || type === "mlp_with_retrieval_primary") && treeModel.layers) {
-      return pickRanMlp(prompt, choices, scenarios);
+      return pickRanMlp(prompt, choices, scenarios, player);
     }
 
     if (type === "logistic_pointwise_blend" && treeModel.weights) {
-      return pickLogisticBlend(prompt, choices);
+      return pickLogisticBlend(prompt, choices, player);
     }
 
     if (
@@ -606,14 +692,19 @@
       type === "heuristic_primary_rf_backup" ||
       treeModel.prefer_heuristic_if_better
     ) {
-      const hs = choices.map((ch) => treeHeuristic(prompt, ch));
+      const hs = choices.map((ch) => treeHeuristic(prompt, ch, player));
       let bestI = 0;
       for (let i = 1; i < hs.length; i++) if (hs[i] > hs[bestI]) bestI = i;
+      // For retrieval models, prefer oracle path; this branch is heuristic fallback blend
+      if (type === "retrieval_tfidf_blend" && treeModel.blend_w_heuristic === 0) {
+        // still allow player-biased heuristic when oracle missed
+        return { pick: choices[bestI], score: hs[bestI] };
+      }
       return { pick: choices[bestI], score: hs[bestI] };
     }
 
     if (type === "random_forest_pairwise" || (treeModel.trees && treeModel.trees.length)) {
-      const feats = choices.map((ch) => baseOnlyFeatures(prompt, ch, kws));
+      const feats = choices.map((ch) => baseOnlyFeatures(prompt, ch, kws, player));
       const scores = choices.map(() => 0);
       for (let i = 0; i < choices.length; i++) {
         for (let j = 0; j < choices.length; j++) {
@@ -629,7 +720,7 @@
 
     // ancien modele single-tree is_best
     if (!treeModel.tree) return null;
-    const M = dilemmaFeatureMatrix(prompt, choices, kws);
+    const M = dilemmaFeatureMatrix(prompt, choices, kws, player);
     let best = choices[0];
     let bestScore = -1e9;
     for (let i = 0; i < choices.length; i++) {
@@ -642,44 +733,124 @@
     return { pick: best, score: bestScore };
   }
 
-  function advise(prompt, choices, scenarios) {
+  /** Hard overrides when live save contradicts generic Engine CF (avg starter). */
+  function playerHardOverride(prompt, choices, player) {
+    if (!player || !choices || choices.length < 2) return null;
+    const phase = careerPhase(player);
+    const pl = (prompt || "").toLowerCase();
+
+    if ((player.injuryWeeks || 0) > 0 || phase === "injured" || /bless|douleur|entorse|kiné|kine|médical|medical/.test(pl)) {
+      const med = choices.filter((ch) =>
+        /repos|soigner|arrêt|arret|médical|medical|médecin|medecin|inapte|protocole|kiné|kine|suivre/.test(ch)
+      );
+      const bad = choices.filter((ch) => /forcer|cacher|anti-douleur|jouer quand/.test(ch));
+      if (med.length && (!bad.length || med[0] !== bad[0])) {
+        med.sort((a, b) => playerBias(b, prompt, player) - playerBias(a, prompt, player));
+        return { pick: med[0], reason: `blessé (${player.injuryWeeks || "?"} sem.) → protocole` };
+      }
+    }
+    if (phase === "decline" || (player.age || 0) >= 34) {
+      const cont = choices.filter(
+        (ch) =>
+          /dernière danse|derniere danse|repousser|encore|battre|reconqu|simple joueur/.test(ch) &&
+          !/annoncer la retraite|prendre votre retraite/.test(ch)
+      );
+      if (cont.length) return { pick: cont[0], reason: `phase déclin (âge ${player.age}) → prolonger` };
+    }
+    return null;
+  }
+
+  function advise(prompt, choices, scenarios, player) {
     const c = cleanChoices(choices);
     if (!c.length) return { pick: "", reason: "Aucun choix détecté", choices: [] };
 
+    const hard = playerHardOverride(prompt, c, player);
+    if (hard) return { ...hard, choices: c, prompt, player, phase: careerPhase(player) };
+
     const oracle = lookupOracle(prompt, c, scenarios);
-    if (oracle) return { ...oracle, choices: c, prompt };
+    if (oracle) {
+      // Soft re-rank oracle candidates with player bias when margins are close
+      if (player && scenarios) {
+        const phase = careerPhase(player);
+        const scored = c.map((ch) => ({
+          ch,
+          s: scoreChoice(ch, prompt, player),
+        }));
+        scored.sort((a, b) => b.s - a.s);
+        const top = scored[0];
+        const oraclePick = oracle.pick;
+        const oracleScore = scored.find((x) => x.ch === oraclePick);
+        if (
+          top &&
+          oracleScore &&
+          top.ch !== oraclePick &&
+          top.s >= oracleScore.s + 6 &&
+          (phase === "injured" || phase === "develop" || phase === "decline")
+        ) {
+          return {
+            pick: top.ch,
+            reason: `oracle+stats (${phase}) · override joueur`,
+            choices: c,
+            prompt,
+            player,
+            phase,
+          };
+        }
+      }
+      return {
+        ...oracle,
+        choices: c,
+        prompt,
+        player,
+        phase: careerPhase(player),
+        reason: player
+          ? `${oracle.reason} · ${careerPhase(player)} OVR${player.ovr || "?"}`
+          : oracle.reason,
+      };
+    }
 
     const retire = antiRetire(prompt, c);
-    if (retire) return { ...retire, choices: c, prompt };
+    if (retire) return { ...retire, choices: c, prompt, player, phase: careerPhase(player) };
 
     const setup = pickSetup(prompt, c);
     if (setup) return { ...setup, choices: c, prompt };
 
-    const treePick = pickWithTree(prompt, c, scenarios);
+    const treePick = pickWithTree(prompt, c, scenarios, player);
     if (treePick) {
       const pct = treeModel.cv_top1_holdout != null ? ` · CV ${(100 * treeModel.cv_top1_holdout).toFixed(0)}%` : "";
       const kind = (treeModel && treeModel.type) || "model";
+      const phase = careerPhase(player);
       return {
         pick: treePick.pick,
-        reason: `${kind} score≈${treePick.score.toFixed(2)}${pct}`,
+        reason: `${kind} score≈${treePick.score.toFixed(2)}${pct}${player ? ` · ${phase}` : ""}`,
         choices: c,
         prompt,
+        player,
+        phase,
       };
     }
 
     let best = c[0];
     let bestScore = -1e9;
     for (const ch of c) {
-      const s = scoreChoice(ch, prompt);
+      const s = scoreChoice(ch, prompt, player);
       if (s > bestScore) {
         bestScore = s;
         best = ch;
       }
     }
     let why = "heuristique (fallback)";
-    if (bestScore >= 5) why += " · signal pro/safe";
+    if (player) why += ` · ${careerPhase(player)}`;
+    if (bestScore >= 5) why += " · signal Engine";
     else if (bestScore <= 0) why += " · moins risqué";
-    return { pick: best, reason: `${why} (h=${bestScore.toFixed(1)})`, choices: c, prompt };
+    return {
+      pick: best,
+      reason: `${why} (h=${bestScore.toFixed(1)})`,
+      choices: c,
+      prompt,
+      player,
+      phase: careerPhase(player),
+    };
   }
 
   function parseBlob(blob) {
@@ -703,5 +874,13 @@
     return { prompt, choices };
   }
 
-  global.DestinyCoach = { advise, parseBlob, cleanChoices, scoreChoice, setTreeModel };
+  global.DestinyCoach = {
+    advise,
+    parseBlob,
+    cleanChoices,
+    scoreChoice,
+    setTreeModel,
+    playerBias,
+    careerPhase,
+  };
 })(window);
