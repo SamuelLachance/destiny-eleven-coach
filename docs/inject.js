@@ -14,6 +14,10 @@
     ? document.currentScript.src.replace(/\/[^/]*$/, "/")
     : "https://samuellachance.github.io/destiny-eleven-coach/");
 
+  // Landing / start-career CTAs — not real dilemma options
+  const START_CAREER_CTA =
+    /^(commencer(\s+(la|ma)\s+carri[eè]re)?|jouer(\s+maintenant)?|lancer(\s+la\s+partie)?|continuer(\s+vers\s+(le\s+)?setup)?)$/i;
+
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       const s = document.createElement("script");
@@ -38,9 +42,6 @@
       );
     };
     const hasLetter = (s) => /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(s || "");
-    // Start-career / landing CTAs — not real dilemma options
-    const startCareerCta =
-      /^(commencer(\s+(la|ma)\s+carri[eè]re)?|jouer(\s+maintenant)?|lancer(\s+la\s+partie)?|continuer(\s+vers\s+(le\s+)?setup)?)$/i;
     const skipExact =
       /^(continuer|retour|commencer|commencer la carri[eè]re|commencer ma carri[eè]re|jouer|jouer maintenant|en voir plus|lancer|lancer la partie|soutenir|soutenir le projet|cookies|annuler|mettre à jour|boutique|badges|panthéon|pantheon|partager|ma fiche|défier|defier|défier un ami|defier un ami|voir la carrière|statistiques|palmarès|palmares|parcours|distinctions|face à face|carte|continuer vers setup|continuer vers le setup)$/i;
     const skipPhrase =
@@ -61,21 +62,30 @@
 
     const seen = new Set();
     const choices = [];
+    let sawStartCareer = false;
     const push = (raw) => {
       let t = norm(raw);
       if (!t || !hasLetter(t) || t.length > 220) return;
-      if (skipExact.test(t) || skipPhrase.test(t) || startCareerCta.test(t)) return;
+      if (START_CAREER_CTA.test(t)) {
+        sawStartCareer = true;
+        return;
+      }
+      if (skipExact.test(t) || skipPhrase.test(t)) return;
       if (prompt && t.length > 80 && prompt.includes(t.slice(0, 40))) return;
       const firstLine = t.split(/\n/)[0].trim();
       if (firstLine.length >= 2 && firstLine.length < t.length && firstLine.length <= 80) t = firstLine;
-      if (skipExact.test(t) || skipPhrase.test(t) || startCareerCta.test(t)) return;
+      if (START_CAREER_CTA.test(t)) {
+        sawStartCareer = true;
+        return;
+      }
+      if (skipExact.test(t) || skipPhrase.test(t)) return;
       if (seen.has(t)) return;
       seen.add(t);
       choices.push(t);
     };
 
-    document.querySelectorAll("#game-card .opt-btn, .event-options .opt-btn, .opt-btn").forEach((el) => {
-      if (visible(el)) push(el.innerText);
+    document.querySelectorAll("#game-card .opt-btn, .event-options .opt-btn, .opt-btn, #btn-start").forEach((el) => {
+      if (visible(el)) push(el.innerText || el.getAttribute("aria-label") || "");
     });
     document.querySelectorAll(".nat-card, .origin-card").forEach((el) => {
       if (!visible(el)) return;
@@ -87,20 +97,9 @@
         if (visible(el)) push(el.innerText || el.getAttribute("aria-label") || "");
       });
     }
-    return [prompt, choices];
-  }
-
-  /** True when the screen is only start-career chrome (no real dilemma). */
-  function isStartCareerScreen(choices) {
-    const startCareerCta =
-      /^(commencer(\s+(la|ma)\s+carri[eè]re)?|jouer(\s+maintenant)?|lancer(\s+la\s+partie)?|continuer(\s+vers\s+(le\s+)?setup)?)$/i;
-    const c = (choices || [])
-      .map((x) => (x || "").replace(/\s+/g, " ").trim())
-      .filter(Boolean);
-    if (!c.length) return false;
-    if (c.every((t) => startCareerCta.test(t))) return true;
-    if (c.length === 1 && startCareerCta.test(c[0])) return true;
-    return false;
+    // Single-button start screen, or only start CTAs left after filtering
+    const startOnly = sawStartCareer && choices.length < 2;
+    return [prompt, choices, startOnly];
   }
 
   function clearAdviceUI(statusMsg) {
@@ -248,26 +247,9 @@
       let last = "";
       setInterval(() => {
         try {
-          const [prompt, choices] = extract();
-          // Also peek raw start-career CTAs in case extract already filtered them out
-          const rawStart = [];
-          const startCareerCta =
-            /^(commencer(\s+(la|ma)\s+carri[eè]re)?|jouer(\s+maintenant)?|lancer(\s+la\s+partie)?|continuer(\s+vers\s+(le\s+)?setup)?)$/i;
-          const vis = (el) => {
-            const r = el.getBoundingClientRect();
-            const st = getComputedStyle(el);
-            return r.width > 8 && r.height > 8 && st.visibility !== "hidden" && st.display !== "none" && Number(st.opacity) !== 0;
-          };
-          document.querySelectorAll("#btn-start, button, .btn, [role='button'], .opt-btn").forEach((el) => {
-            if (!vis(el)) return;
-            const t = (el.innerText || el.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
-            if (t && startCareerCta.test(t)) rawStart.push(t);
-          });
-          if (isStartCareerScreen(choices) || isStartCareerScreen(rawStart) || !choices || choices.length < 2) {
-            const msg =
-              isStartCareerScreen(choices) || isStartCareerScreen(rawStart)
-                ? "Démarre la carrière"
-                : "En attente d’un dilemme…";
+          const [prompt, choices, startOnly] = extract();
+          if (startOnly || !choices || choices.length < 2) {
+            const msg = startOnly ? "Démarre la carrière" : "En attente d’un dilemme…";
             if (last !== "__idle__" + msg) {
               last = "__idle__" + msg;
               clearAdviceUI(msg);
@@ -290,7 +272,12 @@
           if (fp === last) return;
           last = fp;
           const advice = DestinyCoach.advise(prompt, choices, scenarios, player);
-          document.getElementById("d11-coach-pick").textContent = "→ " + (advice.pick || "—");
+          if (!advice.pick) {
+            clearAdviceUI(advice.reason || "En attente d’un dilemme…");
+            last = "__idle__" + (advice.reason || "");
+            return;
+          }
+          document.getElementById("d11-coach-pick").textContent = "→ " + advice.pick;
           let reason = advice.reason || "";
           if (player) {
             const bits = [
