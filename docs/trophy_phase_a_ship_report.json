@@ -1,0 +1,34 @@
+{
+  "shipped_at": "2026-07-26T03:20:42.097084+00:00",
+  "phase": "A_trophy",
+  "label_goal": "trophy_max",
+  "model": "docs/models/trophy.json",
+  "n_careers": 1000000,
+  "n_dec": 35392277,
+  "metric": "p90_trophy",
+  "aggregate": {
+    "labeled": 112,
+    "kept_prev": 65,
+    "flips": 1
+  },
+  "log_end_line": "END A_trophy: careers=1000000 credits=35392277 meanT=3.39 top=0.043 elapsed=7015s",
+  "sample_stats_from_log": {
+    "mean_trophy": 3.39,
+    "top_rate": 0.043,
+    "elapsed_sec": 7015,
+    "credits": 35392277
+  },
+  "n_scenarios_live": 176,
+  "best_i_flips_vs_prev_live": 1,
+  "model_label_breakdown": {
+    "trophy": 112,
+    "trophy_tie_keep": 25,
+    "trophy_undersampled": 40
+  },
+  "ui": {
+    "advisor": "Trophées (P90) / Upside trophées for trophy_max",
+    "inject_fallback": "Trophées (P90) ~?"
+  },
+  "training_status": "Phase B immediate still running; do not disrupt engine_triple_softvote.py",
+  "site": "https://samuellachance.github.io/destiny-eleven-coach/"
+}

@@ -27,7 +27,7 @@
   "blend_w_heuristic": 1.0,
   "chance": 0.4919507575757576,
   "n_dilemmas": 176,
-  "note": "Maximize total trophies (personal OR team). raw_scores = P90(trophyScore|choice) from Engine MC. UI shows Upside trophées (P90), not Ballon-only / Top mondial %.",
+  "note": "Phase A ship: trophy specialist oracle (P90 trophyScore). 1M Engine careers. UI: Trophées (P90) / Upside trophées. Soft-vote ensemble training still in progress (phases B/C/D).",
   "leak_checks": {
     "group_kfold_event": true,
     "retrieval_bank_train_fold_only_for_cv": true,
@@ -41,9 +41,9 @@
     "traj": 257,
     "traj_cem": 244
   },
-  "n_careers_sampled": 12000,
-  "decision_credits": 424815,
-  "reward": "trophyScore=ballon*2+goldenBoot+league+cup+continental+worldCup",
+  "n_careers_sampled": 8000,
+  "decision_credits": 35392277,
+  "reward": "trophy_max = P90(trophyScore|choice); ballon*2 + other trophies",
   "engine_top_mondial": {
     "random": 0.03333333333333333,
     "prev": 0.16666666666666666,
@@ -76,5 +76,89 @@
       "p90Trophy": 6,
       "p90Score": 204
     }
-  }
+  },
+  "specialists": {
+    "trophy": {
+      "n_careers": 2000,
+      "n_dec": 70790,
+      "aggregate": {
+        "labeled": 113,
+        "kept_prev": 64,
+        "flips": 21
+      },
+      "elapsed": 76.77067279815674
+    },
+    "immediate": {
+      "n_careers": 2000,
+      "n_dec": 70824,
+      "aggregate": {
+        "labeled": 127,
+        "kept_prev": 50,
+        "flips": 42
+      },
+      "elapsed": 75.98685693740845
+    },
+    "top": {
+      "n_careers": 2000,
+      "n_dec": 70848,
+      "aggregate": {
+        "labeled": 95,
+        "kept_prev": 82,
+        "flips": 26
+      },
+      "elapsed": 23.5788836479187
+    }
+  },
+  "engine_softvote_bakeoff": {
+    "random": {
+      "meanTrophy": 3.2375,
+      "p90Trophy": 8,
+      "topRate": 0.025,
+      "p90Score": 207
+    },
+    "prev": {
+      "meanTrophy": 5.65,
+      "p90Trophy": 12,
+      "topRate": 0.1125,
+      "p90Score": 253
+    },
+    "trophy": {
+      "meanTrophy": 4.9125,
+      "p90Trophy": 10,
+      "topRate": 0.1,
+      "p90Score": 232
+    },
+    "immediate": {
+      "meanTrophy": 3.675,
+      "p90Trophy": 9,
+      "topRate": 0.075,
+      "p90Score": 235
+    },
+    "top": {
+      "meanTrophy": 4.925,
+      "p90Trophy": 12,
+      "topRate": 0.1,
+      "p90Score": 237
+    },
+    "softvote_static": {
+      "meanTrophy": 5.4625,
+      "p90Trophy": 11,
+      "topRate": 0.125,
+      "p90Score": 256
+    },
+    "softvote": {
+      "meanTrophy": 5.5875,
+      "p90Trophy": 11,
+      "topRate": 0.125,
+      "p90Score": 245
+    },
+    "softvote_live": {
+      "meanTrophy": 5.4625,
+      "p90Trophy": 11,
+      "topRate": 0.125,
+      "p90Score": 256
+    }
+  },
+  "n_careers": 1000000,
+  "shipped": "trophy_phase_a"
 }

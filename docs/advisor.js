@@ -703,14 +703,27 @@
     return null;
   }
 
-  /** Détail pos/nég + upside trophées P90 (objectif = maximiser trophées perso/équipe). */
+  /** Détail pos/nég + score oracle (soft-vote ensemble / trophées / top). */
   function choiceBreakdowns(prompt, choices, scenarios) {
     const c = cleanChoices(choices);
     if (c.length < 2) return [];
 
+    function isSoftVoteGoal(row) {
+      const g = String((row && row.label_goal) || '');
+      return g.indexOf('softvote') >= 0 || Array.isArray(row && row.softvote_scores);
+    }
+
     function isTrophyGoal(row) {
       const g = String((row && row.label_goal) || '');
       return g.indexOf('trophy') >= 0 || Array.isArray(row && row.trophy_p90);
+    }
+
+    function softVoteLabel(score, approx) {
+      if (score == null || !isFinite(score)) {
+        return approx ? 'Soft vote ~? (estimé)' : 'Soft vote ~?';
+      }
+      const n = Math.max(0, Math.min(100, Math.round(Number(score) * 100)));
+      return (approx ? 'Soft vote ~' : 'Soft vote ') + n + '%';
     }
 
     function trophyLabel(score, approx) {
@@ -767,13 +780,18 @@
 
     const row = matchScenarioRow(prompt, c, scenarios);
     if (row) {
-      const trophyMode = isTrophyGoal(row);
+      const softMode = isSoftVoteGoal(row);
+      const trophyMode = !softMode && isTrophyGoal(row);
       const rates = row.top_mondial_pct || null;
+      const softScores = row.softvote_scores || (softMode ? (row.raw_scores || null) : null);
       const trophyScores = row.trophy_p90 || (trophyMode ? (row.raw_scores || null) : null);
       const scores = row.raw_scores || row.qualities;
       const srcChoices = row.choices || [];
-      const useTrophy = Array.isArray(trophyScores) && trophyScores.length === srcChoices.length;
-      const useTopPct = !useTrophy && Array.isArray(rates) && rates.length === srcChoices.length;
+      const useSoft =
+        Array.isArray(softScores) && softScores.length === srcChoices.length;
+      const useTrophy =
+        !useSoft && Array.isArray(trophyScores) && trophyScores.length === srcChoices.length;
+      const useTopPct = !useSoft && !useTrophy && Array.isArray(rates) && rates.length === srcChoices.length;
       return c.map((ch) => {
         let bj = -1;
         let bs = -1;
@@ -788,29 +806,34 @@
         const fx = attachFx(prompt, c, ch, tags);
         let pct = null;
         let tScore = null;
+        let soft = null;
         if (bj >= 0 && bs >= 0.2) {
-          if (useTrophy && trophyScores[bj] != null) tScore = Number(trophyScores[bj]);
+          if (useSoft && softScores[bj] != null) soft = Number(softScores[bj]);
+          else if (useTrophy && trophyScores[bj] != null) tScore = Number(trophyScores[bj]);
           else if (useTopPct && rates[bj] != null) pct = Number(rates[bj]);
           else if (scores && scores[bj] != null) {
             const v = Number(scores[bj]);
-            if (trophyMode) tScore = v;
+            if (softMode) soft = v <= 1 ? v : v / 100;
+            else if (trophyMode) tScore = v;
             else {
-              // Legacy: top-world % in raw_scores (0-100), or career scores.
               pct = v <= 100 ? v : Math.min(95, Math.round(100 * (v - Math.min(...scores.map(Number))) / (Math.max(...scores.map(Number)) - Math.min(...scores.map(Number)) + 1e-9)));
             }
           }
         }
-        const approx = useTrophy ? (bj < 0 || bs < 0.2) : (!useTopPct || bj < 0 || bs < 0.2);
+        const approx = bj < 0 || bs < 0.2;
         return {
           choice: ch,
           pos: fx.pos,
           neg: fx.neg,
-          success: useTrophy ? tScore : pct,
+          success: useSoft || softMode ? soft : useTrophy ? tScore : pct,
           approx,
-          source: useTrophy ? 'trophy_max' : 'top_mondial',
-          labelPct: useTrophy || trophyMode
-            ? trophyLabel(tScore, approx)
-            : pctLabel(pct, approx),
+          source: useSoft || softMode ? 'softvote' : useTrophy ? 'trophy_max' : 'top_mondial',
+          labelPct:
+            useSoft || softMode
+              ? softVoteLabel(soft, approx)
+              : useTrophy || trophyMode
+                ? trophyLabel(tScore, approx)
+                : pctLabel(pct, approx),
         };
       });
     }
