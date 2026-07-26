@@ -1,0 +1,127 @@
+{
+  "n_per_phase": 1000000,
+  "workers": 4,
+  "phases": {
+    "trophy": {
+      "n_careers": 1000000,
+      "n_dec": 35392277,
+      "aggregate": {
+        "labeled": 112,
+        "kept_prev": 65,
+        "flips": 1
+      },
+      "elapsed": 7015.097806453705
+    },
+    "immediate": {
+      "n_careers": 1000000,
+      "n_dec": 35394006,
+      "aggregate": {
+        "labeled": 135,
+        "kept_prev": 42,
+        "flips": 45
+      },
+      "elapsed": 5866.299199342728
+    },
+    "top": {
+      "n_careers": 1000000,
+      "n_dec": 35391423,
+      "aggregate": {
+        "labeled": 106,
+        "kept_prev": 71,
+        "flips": 0
+      },
+      "elapsed": 4960.155090332031
+    },
+    "softvote": {
+      "n_careers": 1000000,
+      "n_dec": 35386106,
+      "aggregate": {
+        "labeled": 137,
+        "kept_prev": 40,
+        "flips": 0
+      },
+      "elapsed": 4215.824489355087,
+      "static_softvote": {
+        "labeled": 177,
+        "kept_prev": 0,
+        "flips": 15
+      }
+    }
+  },
+  "bakeoff": {
+    "random": {
+      "n": 200,
+      "meanScore": 159.665,
+      "p90Score": 204,
+      "meanTrophy": 2.865,
+      "p90Trophy": 8,
+      "topRate": 0.025,
+      "meanEvents": 35.615
+    },
+    "prev": {
+      "n": 200,
+      "meanScore": 197.91,
+      "p90Score": 254,
+      "meanTrophy": 5.845,
+      "p90Trophy": 13,
+      "topRate": 0.135,
+      "meanEvents": 35.3
+    },
+    "trophy": {
+      "n": 200,
+      "meanScore": 197.905,
+      "p90Score": 254,
+      "meanTrophy": 5.845,
+      "p90Trophy": 13,
+      "topRate": 0.135,
+      "meanEvents": 35.3
+    },
+    "immediate": {
+      "n": 200,
+      "meanScore": 190.93,
+      "p90Score": 236,
+      "meanTrophy": 3.86,
+      "p90Trophy": 10,
+      "topRate": 0.08,
+      "meanEvents": 35.28
+    },
+    "top": {
+      "n": 200,
+      "meanScore": 197.91,
+      "p90Score": 254,
+      "meanTrophy": 5.845,
+      "p90Trophy": 13,
+      "topRate": 0.135,
+      "meanEvents": 35.3
+    },
+    "softvote_static": {
+      "n": 200,
+      "meanScore": 196.675,
+      "p90Score": 253,
+      "meanTrophy": 5.695,
+      "p90Trophy": 13,
+      "topRate": 0.12,
+      "meanEvents": 35.29
+    },
+    "softvote": {
+      "n": 200,
+      "meanScore": 197.265,
+      "p90Score": 254,
+      "meanTrophy": 5.775,
+      "p90Trophy": 12,
+      "topRate": 0.125,
+      "meanEvents": 35.31
+    },
+    "softvote_live": {
+      "n": 200,
+      "meanScore": 197.265,
+      "p90Score": 254,
+      "meanTrophy": 5.775,
+      "p90Trophy": 12,
+      "topRate": 0.125,
+      "meanEvents": 35.31
+    }
+  },
+  "shipped": "softvote",
+  "elapsed_sec": 22098.6
+}

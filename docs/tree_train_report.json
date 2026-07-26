@@ -27,23 +27,23 @@
   "blend_w_heuristic": 1.0,
   "chance": 0.4919507575757576,
   "n_dilemmas": 176,
-  "note": "Phase A ship: trophy specialist oracle (P90 trophyScore). 1M Engine careers. UI: Trophées (P90) / Upside trophées. Soft-vote ensemble training still in progress (phases B/C/D).",
+  "note": "Ensemble soft-vote of 3 specialists (trophies P90, immediate netImpact, top-career %). Distilled on blended career reward. UI: Soft vote / Ensemble.",
   "leak_checks": {
     "group_kfold_event": true,
     "retrieval_bank_train_fold_only_for_cv": true,
     "eval_against_career_best_i": true,
     "metrics_holdout_only": true
   },
-  "label_goal": "trophy_max",
+  "label_goal": "softvote_ensemble",
   "engine_career_p90": {
     "random": 188,
     "elite": 207,
     "traj": 257,
     "traj_cem": 244
   },
-  "n_careers_sampled": 8000,
+  "n_careers_sampled": 4000000,
   "decision_credits": 35392277,
-  "reward": "trophy_max = P90(trophyScore|choice); ballon*2 + other trophies",
+  "reward": "softvote(trophy,immediate,top)+blend_distill",
   "engine_top_mondial": {
     "random": 0.03333333333333333,
     "prev": 0.16666666666666666,
@@ -79,86 +79,85 @@
   },
   "specialists": {
     "trophy": {
-      "n_careers": 2000,
-      "n_dec": 70790,
+      "n_careers": 1000000,
+      "n_dec": 35392277,
       "aggregate": {
-        "labeled": 113,
-        "kept_prev": 64,
-        "flips": 21
+        "labeled": 112,
+        "kept_prev": 65,
+        "flips": 1
       },
-      "elapsed": 76.77067279815674
+      "elapsed": 7015.097806453705
     },
     "immediate": {
-      "n_careers": 2000,
-      "n_dec": 70824,
+      "n_careers": 1000000,
+      "n_dec": 35394006,
       "aggregate": {
-        "labeled": 127,
-        "kept_prev": 50,
-        "flips": 42
+        "labeled": 135,
+        "kept_prev": 42,
+        "flips": 45
       },
-      "elapsed": 75.98685693740845
+      "elapsed": 5866.299199342728
     },
     "top": {
-      "n_careers": 2000,
-      "n_dec": 70848,
+      "n_careers": 1000000,
+      "n_dec": 35391423,
       "aggregate": {
-        "labeled": 95,
-        "kept_prev": 82,
-        "flips": 26
+        "labeled": 106,
+        "kept_prev": 71,
+        "flips": 0
       },
-      "elapsed": 23.5788836479187
+      "elapsed": 4960.155090332031
     }
   },
   "engine_softvote_bakeoff": {
     "random": {
-      "meanTrophy": 3.2375,
+      "meanTrophy": 2.865,
       "p90Trophy": 8,
       "topRate": 0.025,
-      "p90Score": 207
+      "p90Score": 204
     },
     "prev": {
-      "meanTrophy": 5.65,
-      "p90Trophy": 12,
-      "topRate": 0.1125,
-      "p90Score": 253
+      "meanTrophy": 5.845,
+      "p90Trophy": 13,
+      "topRate": 0.135,
+      "p90Score": 254
     },
     "trophy": {
-      "meanTrophy": 4.9125,
-      "p90Trophy": 10,
-      "topRate": 0.1,
-      "p90Score": 232
+      "meanTrophy": 5.845,
+      "p90Trophy": 13,
+      "topRate": 0.135,
+      "p90Score": 254
     },
     "immediate": {
-      "meanTrophy": 3.675,
-      "p90Trophy": 9,
-      "topRate": 0.075,
-      "p90Score": 235
+      "meanTrophy": 3.86,
+      "p90Trophy": 10,
+      "topRate": 0.08,
+      "p90Score": 236
     },
     "top": {
-      "meanTrophy": 4.925,
-      "p90Trophy": 12,
-      "topRate": 0.1,
-      "p90Score": 237
+      "meanTrophy": 5.845,
+      "p90Trophy": 13,
+      "topRate": 0.135,
+      "p90Score": 254
     },
     "softvote_static": {
-      "meanTrophy": 5.4625,
-      "p90Trophy": 11,
-      "topRate": 0.125,
-      "p90Score": 256
+      "meanTrophy": 5.695,
+      "p90Trophy": 13,
+      "topRate": 0.12,
+      "p90Score": 253
     },
     "softvote": {
-      "meanTrophy": 5.5875,
-      "p90Trophy": 11,
+      "meanTrophy": 5.775,
+      "p90Trophy": 12,
       "topRate": 0.125,
-      "p90Score": 245
+      "p90Score": 254
     },
     "softvote_live": {
-      "meanTrophy": 5.4625,
-      "p90Trophy": 11,
+      "meanTrophy": 5.775,
+      "p90Trophy": 12,
       "topRate": 0.125,
-      "p90Score": 256
+      "p90Score": 254
     }
   },
-  "n_careers": 1000000,
-  "shipped": "trophy_phase_a"
+  "shipped": "softvote"
 }
